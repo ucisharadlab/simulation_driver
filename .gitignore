@@ -1,0 +1,7 @@
+examples/*
+.idea/*
+lcp/*
+venv/*
+*.png
+*.zip
+.DS_Store
