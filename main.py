@@ -179,7 +179,8 @@ def read_experiment_latencies(root_dir: str):
 
 
 if __name__ == '__main__':
-    create_ignition_fire("./lcp/metadata.shp", "./lcp/barrier.shp")
+    create_ignition_fire("./lcp/LCP_LF2022_FBFM13_220_CONUS.GeoJSON", "./lcp/ignition.shp", latitude_size=0.1,
+                         longitude_size=0.10, horizontal_offset=0.05, vertical_offset=-0.05)
     # read_experiment_latencies(
     #     "/home/sriram/code/farsite/farsite_simulator/examples/FQ_burn/output/timestep/")
     # parameters = dict()
