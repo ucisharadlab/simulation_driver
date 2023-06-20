@@ -1,6 +1,7 @@
 examples/*
 .idea/*
 lcp/*
+lcp\ copy/*
 venv/*
 *.png
 *.zip
