@@ -21,30 +21,6 @@ unit = 10
 repo = SqlRepo()
 
 
-def generate_input_files(settings: dict):
-    settings["%input_file_name%"] = generate_file(input_file_path, input_file_template,
-                                                  input_file_name_template, settings)
-    settings["%output_path%"] = create_output_path(settings)
-    return generate_file(run_file_path, run_file_template, run_file_name_template, settings)
-
-
-def generate_file(path: str, template_file: str, name_template: str, settings: dict):
-    with open(f"{base_path}/{path}/{template_file}", 'r') as template:
-        file_content = template.read()
-
-    file_content = macro_replace(settings, file_content)
-
-    file_name = f"{base_path}/{path}/{sanitise_file_name(macro_replace(settings, name_template))}"
-
-    print(file_name)
-    # print(file_content)
-
-    with open(file_name, 'w') as file:
-        file.write(file_content)
-
-    return file_name
-
-
 def create_output_path(settings: dict) -> str:
     output_path = settings["%preset_output_path%"]
     output_path = sanitise_file_name(macro_replace(settings, output_path))
@@ -52,12 +28,6 @@ def create_output_path(settings: dict) -> str:
         os.mkdir(output_path)
     print(output_path)
     return output_path
-
-
-def macro_replace(settings: dict, initial_string: str) -> str:
-    for key in settings.keys():
-        initial_string = initial_string.replace(key, settings[key])
-    return initial_string
 
 
 def sanitise_file_name(name: str) -> str:

@@ -1,3 +1,6 @@
+import os
+
+
 class Simulator:
     def __init__(self, params: [str]):
         self.control_params = params
@@ -6,6 +9,9 @@ class Simulator:
     def see_parameters(self) -> [str]:
         return self.control_params
 
+    def get_parameter(self, key: str):
+        return self.execution_params[key]
+
     def set_parameter(self, key: str, value) -> None:
         self.execution_params[key] = value
 
@@ -13,8 +19,31 @@ class Simulator:
         for key in params.keys():
             self.set_parameter(key, params[key])
 
-    def run(self) -> None:
+    def preprocess(self) -> None:
         pass
 
-    def get_projection(self) -> dict:
+    def simulate(self) -> None:
+        raise NotImplementedError()
+
+    def postprocess(self) -> None:
         pass
+
+    def run(self) -> None:
+        self.preprocess()
+        self.simulate()
+        self.postprocess()
+
+    def get_results(self) -> [dict]:
+        raise NotImplementedError()
+
+
+class CommandLineSimulator(Simulator):
+    def simulate(self) -> None:
+        print("Executing command")
+        os.system(self.prepare_command())
+
+    def prepare_command(self) -> str:
+        raise NotImplementedError()
+
+    def get_results(self) -> [dict]:
+        raise NotImplementedError()
