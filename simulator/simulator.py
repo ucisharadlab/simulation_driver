@@ -3,11 +3,11 @@ import os
 
 class Simulator:
     def __init__(self, params: [str]):
-        self.control_params = params
+        self.params = params
         self.execution_params = dict()
 
     def see_parameters(self) -> [str]:
-        return self.control_params
+        return self.params
 
     def get_parameter(self, key: str):
         return self.execution_params[key]

@@ -15,7 +15,7 @@ class FarSite(CommandLineSimulator):
         pass
 
     def generate_input_files(self) -> str:
-        # TODO: Refactor
+        # TODO: Refactor to remove execution params from method call
         self.set_parameter("%input_file_name%", FileUtil.generate_file(
             self.get_parameter("%input_file_template%"),
             self.get_parameter("%input_file_name_template%"),
