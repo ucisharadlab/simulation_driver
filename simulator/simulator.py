@@ -22,14 +22,18 @@ class Simulator:
     def preprocess(self) -> None:
         pass
 
+    def specify_parameters(self, params: dict) -> None:
+        self.set_parameters(params)
+
     def simulate(self) -> None:
         raise NotImplementedError()
 
     def postprocess(self) -> None:
         pass
 
-    def run(self) -> None:
+    def run(self, params: dict) -> None:
         self.preprocess()
+        self.specify_parameters(params)
         self.simulate()
         self.postprocess()
 

@@ -12,8 +12,8 @@ class Estimator:
 
     # To learn estimation model
     # Inputs: processor instance to learn the model for
-    #         test inputs to learn the model (optional)
-    def learn(self, processor: Simulator, test_inputs: [dict] = None) -> None:
+    #         test data set to learn the model (optional)
+    def learn(self, processor: Simulator, test_data: [dict] = None) -> None:
         raise NotImplementedError()
 
     # To estimate (cost, quality) for a given set of inputs

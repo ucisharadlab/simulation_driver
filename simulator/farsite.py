@@ -1,11 +1,32 @@
 import os
 
 from simulator.simulator import CommandLineSimulator
-from util import FileUtil, StringUtil
+from util.util import FileUtil, StringUtil
 
 
 class FarSite(CommandLineSimulator):
     def preprocess(self) -> None:
+        self.set_parameters({
+            "%start_time%": "05 04 0000",
+            "%end_time%": "05 04 0500",
+            "%timestep%": "5",
+            "%distance_res%": "5",
+            "%perimeter_res%": "5",
+            "%params%": '%timestep%_%distance_res%_%perimeter_res%_%start_time%_%end_time%',
+            "%base_path%": '/Users/sriramrao/code/farsite/farsite_driver',
+            "%space_file%": "examples/FQ_burn/input/Burn.lcp",
+            "%initial_fire_shape%": "examples/FQ_burn/input/FQ_burn.shp",
+            "%run_file_path%": 'examples/FQ_burn/run_file',
+            "%run_file_template%": 'runBurn_template.txt',
+            "%run_file_name_template%": "runBurn_%params%.txt",
+            "%input_file_path%": 'examples/FQ_burn/Burn_inputfiles',
+            "%input_file_template%": 'burn_template.input',
+            "%input_file_name_template%": 'burn_%params%.input',
+            "%output_path%": "%base_path%/examples/FQ_burn/output/burn_%params%/"
+        })
+        for param in self.execution_params.keys():
+            old_value = self.execution_params[param]
+            self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
         self.generate_input_files()
 
     def prepare_command(self) -> str:
