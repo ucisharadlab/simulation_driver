@@ -1,16 +1,20 @@
 from plan.estimator import Estimator
+from simulator.simulator import Simulator
 
 
 class Planner:
     def __init__(self, estimator: Estimator):
         self.estimator = estimator
 
-    def get_plan(self, query_load: list) -> [dict]:
+    def get_plan(self, query_load: list, simulators: [Simulator]) -> [dict]:
         raise NotImplementedError()
+
+    def get_best_choice(self, query: dict, simulators: [Simulator]) -> dict:
+        return self.get_plan([query], simulators)[0]
 
 
 class DummyPlanner(Planner):
-    def get_plan(self, query_load: list) -> [dict]:
+    def get_plan(self, query_load: list, simulators: [Simulator]) -> [dict]:
         parameter_choices = self.estimator.dump_model()
         ordered_parameters = list()
         epoch_minutes = query_load[0]["epoch"]

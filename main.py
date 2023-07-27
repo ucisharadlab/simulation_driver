@@ -1,6 +1,11 @@
 import os
+import time
 
+import driver
 from cell_mappings import generate_cell_mapping
+from plan.estimator import Estimator, DummyEstimator
+from plan.planner import DummyPlanner
+from repo.edb_repo import EdbRepo
 from repo.sql_repo import SqlRepo
 from simulator.farsite import FarSite
 
@@ -121,7 +126,11 @@ def drive(epoch: int, duration: int) -> None:
 
 
 if __name__ == '__main__':
-    drive(2, 2)
+    repo = EdbRepo()
+    planner = DummyPlanner(DummyEstimator("test"))
+    while True:
+        driver.run(repo, planner, repo.get_query_load())
+        time.sleep(5)
 
     # create_rxfire("", "", [2])
     # create_ignition_fire("./lcp/LCP_LF2022_FBFM13_220_CONUS.GeoJSON", "./lcp/barrier.shp", latitude_size=0.1,
