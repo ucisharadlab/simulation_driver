@@ -16,23 +16,23 @@ farSite = FarSite(["%space_file%", "%initial_fire_shape%", "%start_time%",
                    "%end_time%", "%timestep%", "%distance_res%", "%perimeter_res%"])
 
 
-def run_experiment_te(settings: dict):
+def run_experiment_te():
     for i in range(0, 515, 15):
         farSite.run({"%end_time%": f"05 04 {i:04d}"})
 
 
-def run_experiment_ts(settings: dict):
+def run_experiment_ts():
     for i in range(1, 91, 3):
         farSite.run({"%timestep%": f"{i}"})
 
 
-def run_experiment_pr(settings: dict):
+def run_experiment_pr():
     for i in range(1, 91, 3):
         dr = i if i < 5 else 5
         farSite.run({"%distance_res%": f"{dr}", "%perimeter_res%": f"{i}"})
 
 
-def run_experiment_dr(settings: dict):
+def run_experiment_dr():
     perimeter_res = [1, 15, 30, 45, 60, 75, 90]
     for pr in perimeter_res:
         for dr in range(1, pr + 2, 2):
@@ -96,8 +96,7 @@ def update_results(input_file: str, output_path: str) -> None:
         print(f"Updating results for {file}")
         cell_results = get_cell_id_results(input_file, file)
         for cell_id in cell_results.keys():
-            if cell_id < 25:  # for demo only
-                update_table(cell_id, cell_results[cell_id])
+            update_table(cell_id, cell_results[cell_id])
 
 
 def get_fire_perimeters_filename(output_path: str) -> str:

@@ -103,7 +103,7 @@ def generate_cell_mapping(df_file, target_path, x_min, y_min, x_max, y_max, unit
         # os.system('touch \'' + target_path + '/' + save_filename + '\'')
 
         save_filepath = os.path.join(target_path, save_filename)
-        # get_fire_mapping(surface, points_set, xnum, save_filepath)
+        get_fire_mapping(surface, points_set, xnum, save_filepath)
     return 0
 
 

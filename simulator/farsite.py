@@ -1,7 +1,62 @@
+import geopandas as gpd
 import os
+from shapely.geometry import Point, Polygon
 
 from simulator.simulator import CommandLineSimulator
 from util.util import FileUtil, StringUtil
+
+
+def check_distance(cell, surface):
+    for polygon in surface:
+        if cell.distance(polygon) <= 0.0:
+            return 1
+    return 0
+
+
+def get_fire_mapping(surface, points_grid, save_path):
+    row = ''
+    for row in points_grid:
+        for cell in row:
+            row += str(check_distance(cell, surface)) + ','
+        row += '\n'
+    with open(save_path, 'w') as mapping_file:
+        mapping_file.write(row)
+
+    return 0
+
+
+def get_points_grid(coordinates: tuple, unit: int):
+    points_grid = list()
+    x_min, y_min, x_max, y_max = coordinates[0][0], coordinates[0][1], \
+                                 coordinates[1][0], coordinates[1][1]
+    for y in range(y_min + unit, y_max + unit, unit):
+        row = list()
+        for x in range(x_min + unit, x_max + unit, unit):
+            row.append(Point(x - unit / 2, y - unit / 2))
+        points_grid.append(row)
+    return points_grid
+
+
+def generate_poly_dict(perimeters):
+    poly_dict = dict()
+    Month, Day, Hour = 5, 4, 2  # i[1], i[2], i[3]
+    time_instance = int((Day - 4) * 24 * 60 + (Hour // 100) * 60 + (Hour % 100))
+    if time_instance not in poly_dict:
+        poly_dict[time_instance] = list()
+    poly_dict[time_instance].append(Polygon(perimeters))
+    return poly_dict
+
+
+def generate_cell_mapping(perimeters_file: str, target_path: str, coordinates: tuple, unit: int) -> None:
+    df1 = gpd.read_file(perimeters_file)
+    poly_dict = generate_poly_dict(df1)
+    points_set = get_points_grid(coordinates, unit)
+    x_num = (coordinates[0][0] - coordinates[1][0]) // unit + 1
+    for time_instance in poly_dict:
+        surface = poly_dict[time_instance]
+        save_filename = str(time_instance) + '.csv'
+        save_filepath = os.path.join(target_path, save_filename)
+        get_fire_mapping(surface, points_set, save_filepath)
 
 
 class FarSite(CommandLineSimulator):
@@ -33,7 +88,10 @@ class FarSite(CommandLineSimulator):
         return f'{self.get_parameter("%base_path%")}/src/TestFARSITE {self.get_parameter("%run_file%")} 2>&1 '
 
     def get_results(self) -> [dict]:
-        pass
+        generate_cell_mapping(self.get_parameter("%fire_perimeters_file%"),
+                              self.get_parameter("%cell_mappings_path%"),
+                              self.get_parameter("%coordinates%"),
+                              self.get_parameter("%unit%"))
 
     def generate_input_files(self) -> str:
         # TODO: Refactor to remove execution params from method call

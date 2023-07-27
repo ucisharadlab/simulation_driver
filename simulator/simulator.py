@@ -1,23 +1,24 @@
 import os
 
+from model.param import Parameters
+
 
 class Simulator:
     def __init__(self, params: [str]):
         self.params = params
-        self.execution_params = dict()
+        self.execution_params = Parameters()
 
     def see_parameters(self) -> [str]:
         return self.params
 
-    def get_parameter(self, key: str):
-        return self.execution_params[key]
+    def get_parameter(self, name: str):
+        return self.execution_params.get_value(name)
 
-    def set_parameter(self, key: str, value) -> None:
-        self.execution_params[key] = value
+    def set_parameter(self, name: str, value) -> None:
+        self.execution_params.set_value(name, value)
 
     def set_parameters(self, params: dict) -> None:
-        for key in params.keys():
-            self.set_parameter(key, params[key])
+        self.execution_params.set_values(params)
 
     def preprocess(self) -> None:
         pass
