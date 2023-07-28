@@ -6,11 +6,6 @@ from simulator.simulator import CommandLineSimulator, Simulator
 from util.util import FileUtil, StringUtil
 
 
-def get_simulator(name: str) -> Simulator:
-    return FarSite(["%space_file%", "%initial_fire_shape%", "%start_time%",
-                    "%end_time%", "%timestep%", "%distance_res%", "%perimeter_res%"])
-
-
 def check_distance(cell, surface):
     for polygon in surface:
         if cell.distance(polygon) <= 0.0:

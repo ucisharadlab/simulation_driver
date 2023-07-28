@@ -2,18 +2,15 @@ import os
 import time
 
 import driver
+import test
 from cell_mappings import generate_cell_mapping
 from plan.estimator import Estimator, DummyEstimator
-from plan.planner import DummyPlanner
+from plan.planner import GreedyPlanner
 from repo.edb_repo import EdbRepo
 from repo.sql_repo import SqlRepo
 from simulator.farsite import FarSite
+from simulator.simulator import NoopSimulator
 
-input_parameters = {
-    (120, 5, 5, 5): (3, 0.7),
-    (120, 10, 5, 5): (1.5, 0.6),
-    (120, 8, 10, 10): (0.5, 0.55),
-}
 x_min, y_min, x_max, y_max = 702200.0, 4309600.0, 702900.0, 4310200.0
 unit = 10
 repo = SqlRepo()
@@ -125,15 +122,25 @@ def drive(epoch: int, duration: int) -> None:
         update_results(farSite.get_parameter("%input_file_name%"), cell_mappings_path)
 
 
-if __name__ == '__main__':
-    repo = EdbRepo()
-    planner = DummyPlanner(DummyEstimator("test"))
-    while True:
-        driver.run(repo, planner, repo.get_query_load())
-        time.sleep(5)
+def test_drive():
+    db_repo = EdbRepo()
+    estimator = DummyEstimator("test")
+    estimator.learn(NoopSimulator(""), test.get_data())
+    planner = GreedyPlanner(estimator)
+    driver.run(db_repo, planner, test.get_query_load())
 
-    # create_rxfire("", "", [2])
-    # create_ignition_fire("./lcp/LCP_LF2022_FBFM13_220_CONUS.GeoJSON", "./lcp/barrier.shp", latitude_size=0.1,
-    #                      longitude_size=0.1, horizontal_offset=0.05, vertical_offset=-0.05)
-    # read_experiment_latencies(
-    #     "/home/sriram/code/farsite/farsite_simulator/examples/FQ_burn/output/timestep/")
+
+def cleanup():
+    repo = EdbRepo()
+    repo.remove_simulator("FireSim")
+    repo.remove_simulated_columns("fire_presence", "fire_presence")
+    print("clean")
+
+
+if __name__ == '__main__':
+    cleanup()
+    repo = EdbRepo()
+    repo.add_simulator("FireSim", "FarSite", "presence", "{}")
+    repo.add_simulated_columns("fire_presence", "fire_map", "cell_id, endtime", "fire_presence", "presence")
+    test_drive()
+    print("done")

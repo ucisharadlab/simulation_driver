@@ -30,7 +30,7 @@ class DummyEstimator(Estimator):
         super().__init__(name)
         self.estimates = dict()
 
-    def learn(self, processor: Simulator, test_data: dict = None) -> None:
+    def learn(self, processor: Simulator, test_data: [dict] = None) -> None:
         self.estimates = test_data
 
     def estimate(self, inputs: dict) -> Parameters:

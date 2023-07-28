@@ -52,3 +52,18 @@ class CommandLineSimulator(Simulator):
 
     def get_results(self) -> [dict]:
         raise NotImplementedError()
+
+
+class NoopSimulator(CommandLineSimulator):
+    def specify_parameters(self, params: dict) -> None:
+        pass
+
+    def prepare_command(self) -> str:
+        return ""
+
+    def get_results(self) -> [dict]:
+        return [{"cell_id": 25, "fire_presence": 1}]
+
+
+def get_simulator(name: str) -> Simulator:
+    return NoopSimulator(["%param1%"])

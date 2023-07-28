@@ -13,7 +13,7 @@ class Planner:
         return self.get_plan([query], simulators)[0]
 
 
-class DummyPlanner(Planner):
+class GreedyPlanner(Planner):
     def get_plan(self, query_load: list, simulators: [Simulator]) -> [dict]:
         parameter_choices = self.estimator.dump_model()
         ordered_parameters = list()
