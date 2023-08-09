@@ -5,11 +5,10 @@ def get_data():
 
 
 def get_query_load():
-    return [{"name": "Test Query",
-             "epoch": 5,
-             "duration_in_epochs": 2,
+    return [{"name": "Fire Query",
+             "query": "SELECT cell_id FROM fire_map WHERE fire_presence = 1",
              "output_type": "fire_presence",
-             "simulation_name": "fire_presence"}]
+             "simulation_id": "ABC123"}]
 
 
 # create_rxfire("", "", [2])

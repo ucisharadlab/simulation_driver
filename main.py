@@ -124,10 +124,7 @@ def drive(epoch: int, duration: int) -> None:
 
 def test_drive():
     db_repo = EdbRepo()
-    estimator = DummyEstimator("test")
-    estimator.learn(NoopSimulator(""), test.get_data())
-    planner = GreedyPlanner(estimator)
-    driver.run(db_repo, planner, test.get_query_load())
+    driver.run(db_repo)
 
 
 def cleanup():
@@ -140,7 +137,7 @@ def cleanup():
 if __name__ == '__main__':
     cleanup()
     repo = EdbRepo()
-    repo.add_simulator("FireSim", "FarSite", "presence", "{}")
+    repo.add_simulator("FireSim", "FarSite", "presence", "{\"time_extent\": 60, \"\": \"\"}")
     repo.add_simulated_columns("fire_presence", "fire_map", "cell_id, endtime", "fire_presence", "presence")
     test_drive()
     print("done")

@@ -6,6 +6,9 @@ class Planner:
     def __init__(self, estimator: Estimator):
         self.estimator = estimator
 
+    def learn(self, processor: Simulator, test_data: [dict]) -> None:
+        self.estimator.learn(processor, test_data)
+
     def get_plan(self, query_load: list, simulators: [Simulator]) -> [dict]:
         raise NotImplementedError()
 
