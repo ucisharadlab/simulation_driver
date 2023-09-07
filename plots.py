@@ -1,4 +1,6 @@
 import csv
+import os
+from datetime import datetime
 from math import comb
 import matplotlib
 import matplotlib.pyplot as plotlib
@@ -82,6 +84,27 @@ def plot_costs():
     # plotlib.xlabel("timestep")
     # plotlib.ylabel("quality")
     # plotlib.show()
+
+
+def plot(data, label: tuple, save_file: str):
+    plotlib.plot(data[:, 0], data[:, 1], color='blue', alpha=0.65)
+    plotlib.xlabel(label[0])
+    plotlib.ylabel(label[1])
+    plotlib.savefig(save_file)
+    plotlib.show()
+
+
+def plot_all(data_files: list, labels: list = None, plot_path: str = "./hysplit_out/plots"):
+    for index in range(len(data_files)):
+        file = data_files[index]
+        label = labels[index]
+        with open(file) as data_file:
+            lines = csv.reader(data_file, delimiter="\t")
+            data = [[float(value) for value in line] for line in lines]
+        data = np.asarray(data)
+        filename = os.path.basename(file).split('.')[0]
+        plot_file = os.path.join(plot_path, f"{filename}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.jpg")
+        plot(data, label, plot_file)
 
 
 if __name__ == '__main__':

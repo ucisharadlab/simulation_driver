@@ -9,7 +9,7 @@ class SqlRepo:
         self.connection = psycopg2.connect(
             host="localhost",
             database="testdb",
-            user="sriramrao",
+            user="postgres",
             password="",
             port=5433)
         self.cursor = None

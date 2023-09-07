@@ -6,19 +6,28 @@ from model.param import Parameters
 class Simulator:
     def __init__(self, params: [str]):
         self.params = params
-        self.execution_params = Parameters()
+        self.execution_params = dict()
+        self.set_defaults()
+
+    def get_defaults(self, params: dict = None) -> dict:
+        pass
+
+    def set_defaults(self, execution_params: dict = None):
+        self.set_parameters(self.get_defaults())
+        self.set_parameters(execution_params)
 
     def see_parameters(self) -> [str]:
         return self.params
 
     def get_parameter(self, name: str):
-        return self.execution_params.get_value(name)
+        return self.execution_params[name]
 
     def set_parameter(self, name: str, value) -> None:
-        self.execution_params.set_value(name, value)
+        self.execution_params[name] = value
 
     def set_parameters(self, params: dict) -> None:
-        self.execution_params.set_values(params)
+        if params is not None:
+            self.execution_params.update(params)
 
     def preprocess(self) -> None:
         pass
@@ -32,9 +41,10 @@ class Simulator:
     def postprocess(self) -> None:
         pass
 
-    def run(self, params: dict) -> None:
+    def run(self, params: dict = None) -> None:
         self.preprocess()
-        self.specify_parameters(params)
+        if params is not None:
+            self.specify_parameters(params)
         self.simulate()
         self.postprocess()
 
@@ -44,8 +54,9 @@ class Simulator:
 
 class CommandLineSimulator(Simulator):
     def simulate(self) -> None:
-        print("Executing command")
-        os.system(self.prepare_command())
+        command = self.prepare_command()
+        print(f"Executing command: {command}")
+        os.system(command)
 
     def prepare_command(self) -> str:
         raise NotImplementedError()

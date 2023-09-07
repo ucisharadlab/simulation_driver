@@ -1,21 +1,42 @@
 import os
-import time
+from datetime import datetime, timedelta
+import random
 
 import driver
-import test
 from cell_mappings import generate_cell_mapping
-from plan.estimator import Estimator, DummyEstimator
-from plan.planner import GreedyPlanner
+import hysplit_test
+import plots
 from repo.edb_repo import EdbRepo
 from repo.sql_repo import SqlRepo
 from simulator.farsite import FarSite
-from simulator.simulator import NoopSimulator
+from simulator.hysplit import Hysplit
 
 x_min, y_min, x_max, y_max = 702200.0, 4309600.0, 702900.0, 4310200.0
 unit = 10
-repo = SqlRepo()
+# repo = SqlRepo()
 farSite = FarSite(["%space_file%", "%initial_fire_shape%", "%start_time%",
                    "%end_time%", "%timestep%", "%distance_res%", "%perimeter_res%"])
+
+first_names = ["Alice", "Bob", "Charles", "Darwin"]
+last_names = ["Nunez", "Rowe", "Henderson", "Barry"]
+diseases = ["covid-19", "tuberculosis", "asthma", "pneumonia", "chronic cough",
+            "hay fever", "leukaemia", "influenza", "measles", "rubella"]
+areas = ["lung", "lung", "lung", "lung", "lung", "lung", "blood", "throat", "lung", "bone marrow"]
+hospitals = ['ACMH Hospital',
+'AHMC Anaheim Regional Medical Center',
+'AHMC Seton Medical Center',
+'AHN Grove City',
+'AHS Southcrest Hospital, LLC dba Hillcrest Hospital South',
+'Abbeville General Hospital',
+'Abbott Northwestern Hospital',
+'Abrazo Arrowhead Campus',
+'Abrazo Central Campus',
+'Abrazo Scottsdale Campus',
+'Abrazo West Campus',
+'Acadia General Hospital (American Legion Hospital)',
+'Acadian Medical Center',
+'Addison Gilbert Hospital',
+'Adena Regional Medical Center']
 
 
 def run_experiment_te():
@@ -79,49 +100,6 @@ def get_cell_id_results(input_file: str, cell_mapping_file: str) -> dict:
     return results
 
 
-def update_table(cell_id: int, fire_presence: bool) -> None:
-    command = f"UPDATE fire_map SET fire_presence = {1 if fire_presence else 0} WHERE cell_id = {cell_id}"
-    repo.execute(command)
-
-
-def get_parameter_order(epoch_minutes: int, duration_in_epochs: int) -> list:
-    chosen_parameters = list()
-    for time in range(epoch_minutes, duration_in_epochs * epoch_minutes + 1, epoch_minutes):
-        filtered_parameters = {key: value for (key, value) in input_parameters.items() if value[0] < time}
-        chosen_parameters.append(max(filtered_parameters, key=lambda k: filtered_parameters[k][1]))
-    return chosen_parameters
-
-
-def update_results(input_file: str, output_path: str) -> None:
-    for output_file in os.listdir(output_path):
-        file = os.path.join(output_path, output_file)
-        print(f"Updating results for {file}")
-        cell_results = get_cell_id_results(input_file, file)
-        for cell_id in cell_results.keys():
-            update_table(cell_id, cell_results[cell_id])
-
-
-def get_fire_perimeters_filename(output_path: str) -> str:
-    return f"{output_path}Burn_Perimeters.shp"
-
-
-def drive(epoch: int, duration: int) -> None:
-    print("Getting best order of simulator control parameters")
-    parameters = get_parameter_order(epoch, duration)
-    for parameter in parameters:
-        print(f"Calling simulator for: {parameter}")
-        farSite.run({
-            "%timestep%": str(parameter[1]),
-            "%distance_res%": str(parameter[2]),
-            "%perimeter_res%": str(parameter[3])
-        })
-        output_path = farSite.get_parameter('%output_path%')
-        cell_mappings_path = f"{output_path}/cell_mappings/"
-        generate_cell_mapping(get_fire_perimeters_filename(output_path),
-                              cell_mappings_path, x_min, y_min, x_max, y_max, unit)
-        update_results(farSite.get_parameter("%input_file_name%"), cell_mappings_path)
-
-
 def test_drive():
     db_repo = EdbRepo()
     driver.run(db_repo)
@@ -134,10 +112,80 @@ def cleanup():
     print("clean")
 
 
-if __name__ == '__main__':
+def start_driver():
     cleanup()
     repo = EdbRepo()
     repo.add_simulator("FireSim", "FarSite", "presence", "{\"time_extent\": 60, \"\": \"\"}")
     repo.add_simulated_columns("fire_presence", "fire_map", "cell_id, endtime", "fire_presence", "presence")
     test_drive()
     print("done")
+
+
+def add_rows(table: str, values: tuple, rows: list):
+    if len(rows) < 1:
+        return
+    is_first_processed = False
+    command = f"INSERT INTO {table} ({','.join(values)}) VALUES "
+    for row in rows:
+        command += ",\n" if is_first_processed else ""
+        if not is_first_processed:
+            is_first_processed = True
+        line = "'" + "', '".join(row) + "'"
+        command += f"({line})"
+
+    repo = SqlRepo()
+    repo.execute(command)
+
+
+def get_rows_person(count=10):
+    end = datetime.now() - timedelta(days=365*50)
+    start = datetime.now() - timedelta(days=365*110)
+    delta = end - start
+    int_delta = delta.days * 24 * 60 * 60 + delta.seconds
+    new_rows = list()
+    for i in range(0, count):
+        name = random.choice(first_names) + " " + random.choice(last_names)
+        birthdate = start + timedelta(seconds=random.randrange(int_delta))
+        new_rows.append((name, birthdate.strftime("%Y-%m-%d")))
+    return new_rows
+
+
+def get_rows_disease(count=10):
+    new_rows = list()
+    for i in range(0, len(diseases)):
+        new_rows.append((diseases[i], areas[i]))
+    return new_rows
+
+
+def get_rows_hospital(count=10):
+    new_rows = list()
+    for hospital in hospitals:
+        new_rows.append((hospital, str(random.choice(range(30, 80)))))
+    return new_rows
+
+
+if __name__ == '__main__':
+    # hysplit_test.default_test()
+    # add_rows("disease", ("name", "affected_area"), get_rows_disease())
+    # add_rows("person", ("name", "birthdate"), get_rows_person())
+    # add_rows("hospital", ("name", "max_occupancy"), get_rows_hospital())
+    # hysplit_test.total_run_time_test(attempts=3)
+    # hysplit_test.emission_duration_test(attempts=3)
+    # hysplit_test.locations_test(attempts=3)
+    # hysplit_test.output_grid_sampling_test()
+    # hysplit_test.pollutants_test()
+    # hysplit_test.output_grid_spacing_test()
+    # hysplit_test.total_run_time_test()
+    # hysplit_test.output_grid_span_test()
+    # hysplit_test.pollutants_test()
+    # hysplit_test.output_grid_sampling_test()
+    base_path = "/Users/sriramrao/code/farsite/farsite_driver/hysplit_out"
+    data_files = [
+        # f"{base_path}/span/2023-08-29_20-39/span_timings.txt",
+        # f"{base_path}/pollutants_count/2023-08-26_22-55/pollutant_timings.txt",
+        f"{base_path}/sampling/2023-08-30_02-07/sampling_timings.txt"]
+    labels = [
+        # ("Span (degrees)", "Time taken (seconds)"),
+        # ("Pollutants (count)", "Time taken (seconds)"),
+        ("Sample Duration (minutes)", "Time taken (seconds)")]
+    plots.plot_all(data_files, labels)
