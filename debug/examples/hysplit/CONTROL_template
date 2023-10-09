@@ -1,0 +1,19 @@
+00 00 00 00
+%start_locations_count%
+%start_locations%
+%total_run_time%
+0
+10000.0
+%input_data_grids_count%
+%input_data_grids%
+%pollutants_count%
+%pollutants%
+%output_grids_count%
+%output_grids%
+%pollutants_count%
+%deposition%
+0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0
+0.0
+0.0
