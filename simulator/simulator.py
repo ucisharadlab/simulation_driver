@@ -1,7 +1,5 @@
 import os
 
-from model.param import Parameters
-
 
 class Simulator:
     def __init__(self, params: [str]):
@@ -26,8 +24,9 @@ class Simulator:
         self.execution_params[name] = value
 
     def set_parameters(self, params: dict) -> None:
-        if params is not None:
-            self.execution_params.update(params)
+        if params is None or len(params) < 1: return
+        for key in params.keys():
+            self.execution_params[key] = params[key]
 
     def preprocess(self) -> None:
         pass
@@ -74,7 +73,3 @@ class NoopSimulator(CommandLineSimulator):
 
     def get_results(self) -> [dict]:
         return [{"cell_id": 25, "fire_presence": 1}]
-
-
-def get_simulator(name: str) -> Simulator:
-    return NoopSimulator(["%param1%"])

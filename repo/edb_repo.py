@@ -1,3 +1,5 @@
+import json
+
 from repo.sql_repo import SqlRepo
 
 
@@ -14,7 +16,12 @@ class EdbRepo(SqlRepo):
         self.add_simulator(name, new_class_name, new_type, new_parameters)
 
     def get_simulators(self, output_type: str):
-        return self.fetch_entities(f"SELECT * FROM simulator WHERE output_type = '{output_type}'")
+        rows = self.fetch_entities(f"SELECT s.id, name, class_name, output_type, planner, parameters "
+                                   f"FROM simulator s INNER JOIN simulator_status ss "
+                                   f"ON s.name = ss.simulator_name "
+                                   f"WHERE output_type = '{output_type}' AND status = 0")
+        return [dict_from_tuple(["id", "name", "class_name", "output_type", "planner", "parameters"], row)
+                for row in rows]
 
     def add_simulated_columns(self, name: str, table: str, key_columns: [str], columns: [str], data_type: str):
         self.execute(f"INSERT INTO simulated_columns (name, table_name, key_columns, columns, data_type) VALUES "
@@ -27,10 +34,48 @@ class EdbRepo(SqlRepo):
         self.remove_simulated_columns(name, column)
         self.add_simulated_columns(name, table, key_columns, column, new_type)
 
-    def store_result(self, simulation_name: str, rows: [dict]):
+    def store_result(self, data_type: str, rows: [dict]):
         for row in rows:
-            self.execute(f"UPDATE fire_map SET fire_presence = {row['fire_presence']} WHERE cell_id = {row['cell_id']}")
+            self.execute(f"INSERT INTO {data_type}_data (timestamp, location, name, concentration) VALUES "
+                         f"(to_timestamp('{row['timestamp']}', 'YYYY-MM-DD HH24:MI')::timestamp, "
+                         f"'{row['location']}', '{row['name']}', '{row['concentration']}')"
+                         f"ON CONFLICT (timestamp, location, name)"
+                         f"DO UPDATE SET concentration = {row['concentration']}")
 
     def get_query_load(self) -> [dict]:
-        self.fetch_entity("SELECT * FROM simulator LIMIT 1")  # TODO: change query
-        return [{}]
+        rows = self.fetch_entities("SELECT id, query, start_time FROM query_workload WHERE status = 0")  # TODO: change query
+        return [] if not rows else [dict_from_tuple(["id", "query", "start_time"], row) for row in rows]
+
+    def log(self, simulator: str, params: dict, execution_info: dict):
+        self.execute(f"INSERT INTO simulation_log (simulator, params, execution_info, timestamp) VALUES "
+                     f"('{simulator}', '{json.dumps(params)}', '{json.dumps(execution_info)}', NOW())")
+
+    def get_log(self, simulator: str):
+        rows = self.fetch_entities(f"SELECT simulator, params FROM simulation_log WHERE simulator = '{simulator}'")
+        return [dict_from_tuple(["simulator", "params"], row) for row in rows]
+
+    def complete_queries(self, query_ids: list):
+        if len(query_ids) < 1: return
+        ids = [str(query_id) for query_id in query_ids]
+        self.execute(f"UPDATE query_workload SET status = 1 WHERE id IN ({','.join(ids)})")
+
+    def get_test_data(self, table: str) -> dict:
+        if "%NULL%" == table:
+            return dict()
+        rows = self.fetch_entities(f"SELECT parameters, cost, quality FROM {table}")
+        test_data = dict()
+        for row in rows:
+            test_row = prepare_test_data_row(row)
+            test_data[test_row[0]] = test_row[1]
+        return test_data
+
+
+def dict_from_tuple(schema: list, row: tuple) -> dict:
+    row_attribute_names = dict()
+    for i in range(len(schema)):
+        row_attribute_names[schema[i]] = row[i]
+    return row_attribute_names
+
+
+def prepare_test_data_row(row: tuple) -> tuple:
+    return row[0], {"cost": row[1], "quality": row[2]}

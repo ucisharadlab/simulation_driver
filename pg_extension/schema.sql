@@ -35,7 +35,7 @@ CREATE TABLE query_workload (
 
 CREATE TABLE simulator_status (
     id SERIAL PRIMARY KEY,
-    simulator TEXT,
+    simulator_name TEXT,
     status INTEGER,
     start_time TIMESTAMP,
     end_time TIMESTAMP

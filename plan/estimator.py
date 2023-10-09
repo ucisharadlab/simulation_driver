@@ -4,7 +4,7 @@ from simulator.simulator import Simulator
 
 class Estimator:
     # Constructor
-    def __init__(self, name: str):
+    def __init__(self):
         pass
 
     # For any initial setup
@@ -14,7 +14,7 @@ class Estimator:
     # To learn estimation model
     # Inputs: processor instance to learn the model for
     #         test data set to learn the model (optional)
-    def learn(self, processor: Simulator, test_data: [dict] = None) -> None:
+    def learn(self, processor: Simulator, test_data: dict = None) -> None:
         raise NotImplementedError()
 
     # To estimate (cost, quality) for a given set of inputs
@@ -25,12 +25,12 @@ class Estimator:
         raise NotImplementedError()
 
 
-class DummyEstimator(Estimator):
-    def __init__(self, name: str):
-        super().__init__(name)
+class SimpleEstimator(Estimator):
+    def __init__(self):
+        super().__init__()
         self.estimates = dict()
 
-    def learn(self, processor: Simulator, test_data: [dict] = None) -> None:
+    def learn(self, processor: Simulator, test_data: dict = None) -> None:
         self.estimates = test_data
 
     def estimate(self, inputs: dict) -> Parameters:

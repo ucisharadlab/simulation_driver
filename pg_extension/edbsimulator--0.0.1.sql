@@ -3,6 +3,7 @@ create_simulator(
 	name	TEXT,
 	class_name	TEXT,
 	output_type	TEXT,
+    planner_name    TEXT,
 	parameters	TEXT
 )
 RETURNS VOID AS $$
@@ -12,7 +13,7 @@ sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
 sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
 import metadata_access
 
-return metadata_access.create_simulator(name, class_name, output_type, parameters)
+return metadata_access.create_simulator(name, class_name, output_type, planner_name, parameters)
 
 $$ LANGUAGE plpython3u;
 
@@ -55,7 +56,7 @@ get_simulators(
 )
 RETURNS TABLE (LIKE simulator) AS $$
 BEGIN
-	RETURN QUERY SELECT * FROM simulator WHERE output_type = type;
+	RETURN QUERY SELECT id, name, class_name, planner, output_type FROM simulator WHERE output_type = type;
 END
 $$ LANGUAGE plpgsql;
 
@@ -64,7 +65,7 @@ add_simulated_column(
 	name	TEXT,
 	table_name	TEXT,
     column_name  TEXT,
-	type_key	TEXT[],
+	type_key	TEXT,
 	data_type	TEXT
 )
 RETURNS VOID AS $$
@@ -123,6 +124,20 @@ return metadata_access.stop_simulator(name)
 
 $$ LANGUAGE plpython3u;
 
+CREATE OR REPLACE FUNCTION
+learn(
+	simulator_name	TEXT,
+    test_data_table TEXT DEFAULT '%NULL%'
+)
+RETURNS VOID AS $$
+DECLARE
+    planner_name TEXT := '';
+BEGIN
+    SELECT planner FROM simulator WHERE name = simulator_name INTO planner_name;
+	PERFORM insert_query(CONCAT('learn:', simulator_name, ':', planner_name, ':', test_data_table), 0, 0);
+END
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION rewrite_simulator_query(
 	query    TEXT
 )
@@ -138,7 +153,7 @@ return metadata_access.rewrite_query(query)
 $$ LANGUAGE plpython3u;
 
 CREATE OR REPLACE FUNCTION insert_query(
-   IN _query    INTEGER,
+   IN _query    TEXT,
    IN _refresh_interval INTEGER,
    IN _refresh_count    INTEGER,
    OUT _id  INTEGER
@@ -166,12 +181,14 @@ DECLARE
     refresh_query TEXT := 'SELECT * FROM ' || view_name;
 BEGIN
     SELECT insert_query(query, refresh_interval_minutes, refresh_count) INTO _id;
-    SELECT rewrite_simulator_query(query) INTO view_query;
-    EXECUTE 'CREATE INCREMENTAL MATERIALIZED VIEW $1 AS $2', view_name, view_query;
+    view_query := rewrite_simulator_query(query);
+    RAISE NOTICE 'VIEW QUERY: %', view_query;
+    EXECUTE 'CREATE INCREMENTAL MATERIALIZED VIEW $1 AS $2'  view_name, view_query;
 
 	LOOP
 	    EXIT WHEN counter = refresh_count;
-        EXECUTE '$1' USING refresh_query;
+	    RAISE NOTICE 'Refreshing';
+        EXECUTE refresh_query;
         RAISE NOTICE 'Refreshed % time(s)', counter;
         counter := counter + 1;
 		PERFORM pg_sleep(delay);

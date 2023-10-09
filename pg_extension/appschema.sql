@@ -8,13 +8,14 @@ CREATE TABLE care_facility (
 CREATE TABLE person (
     id SERIAL PRIMARY KEY,
     name VARCHAR(250),
-    birthdate date
+    birthdate date,
+    lives_at INTEGER
 );
 
 CREATE TABLE disease (
     id SERIAL PRIMARY KEY,
     name VARCHAR(250),
-    affected_area text
+    affected_organ text
 );
 
 CREATE TABLE hospital (
@@ -23,11 +24,31 @@ CREATE TABLE hospital (
     max_occupancy INTEGER
 );
 
-CREATE TABLE pollutant_concentration (
+CREATE TABLE pollutant_spread (
     id SERIAL PRIMARY KEY,
-    timestamp date,
+    timestamp TIMESTAMP,
     location text,
     name VARCHAR(250),
     concentration FLOAT
+);
+
+CREATE TABLE admission (
+    hospital_id INTEGER,
+    person_id INTEGER,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP
+);
+
+CREATE TABLE sickness (
+    disease_id INTEGER,
+    person_id INTEGER,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP
+);
+
+create table hysplit_test_data (
+	parameters TEXT,
+	cost DECIMAL,
+	quality DECIMAL
 );
 

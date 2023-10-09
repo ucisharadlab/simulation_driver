@@ -1,4 +1,7 @@
+import csv
 import os
+from decimal import *
+from datetime import datetime
 
 from simulator.simulator import CommandLineSimulator
 from util.util import FileUtil, StringUtil
@@ -6,14 +9,11 @@ from util.util import FileUtil, StringUtil
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        for key in self.get_parameter("%keys_with_count%"):
-            self.add_count(key)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
                 continue
             old_value = self.execution_params[param]
             self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
-        self.generate_input()
 
     def generate_input(self):
         template_file = os.path.join(self.get_parameter("%control_file%")[0]["%template_path%"],
@@ -24,16 +24,39 @@ class Hysplit(CommandLineSimulator):
                                self.execution_params)
 
     def prepare_command(self) -> str:
-        command = "/Users/sriramrao/code/hysplit/hysplit/exec/hycs_std "
-        for grid in self.get_parameter("%output_grids%"):
-            output_path = os.path.join(grid['%dir%'], grid['%file%'])
-            command += f"&& /Users/sriramrao/code/hysplit/hysplit/exec/concplot +g1 " \
-                       f"-i{output_path} -c50 -j/Users/sriramrao/code/hysplit/hysplit/graphics/arlmap " \
-                       f"-o{output_path}_plot.html"
+        for key in self.get_parameter("%keys_with_count%"):
+            self.add_count(key)
+        self.generate_input()
+        dump_files = list()
+        output_grids = self.get_parameter("%output_grids%")
+        output_dir = output_grids[0]['%dir%']
+        for grid in output_grids:
+            dump_files.append(os.path.join(grid['%dir%'], grid['%file%']))
+        time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        dump_file_name = os.path.join(output_dir, f"dump_files_{time_suffix}.txt")
+        with open(dump_file_name, 'w') as dump_file:
+            dump_file.writelines(dump_files)
+        output_file = os.path.join(output_dir, f"data_dump_{time_suffix}")
+        self.set_parameter("%data_output%", dump_files[0] + ".txt")
+        command = (f"/Users/sriramrao/code/hysplit/hysplit/exec/hycs_std && echo 'Done simulation' && "
+                   # f"/Users/sriramrao/code/hysplit/hysplit/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
+                   f"/Users/sriramrao/code/hysplit/hysplit/exec/con2asc -i{dump_files[0]} -s -u1.0E+9 -d && echo 'Done conversion' ")
         return command
 
     def get_results(self) -> [dict]:
-        pass
+        filename = self.get_parameter("%data_output%")
+        span = Decimal(self.get_parameter("%output_grids%")[0]["%spacing%"].split(" ")[0])
+        data = list()
+        with open(filename) as file:
+            lines = csv.reader(file, delimiter=",")
+            name = next(lines)[6]
+            lines = [[value.strip() for value in line] for line in lines]
+            data = [{"timestamp": f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00",
+                     "location": f"({Decimal(line[4]) - span / 2}, {Decimal(line[5]) - span / 2}), "
+                                 f"({Decimal(line[4]) + span / 2}, {Decimal(line[5]) + span / 2})",
+                     "name": name,
+                     "concentration": line[6]} for line in lines]
+        return data
 
     def add_count(self, key: str, count_key: str = None) -> None:
         if count_key is None:
@@ -53,23 +76,23 @@ class Hysplit(CommandLineSimulator):
             "%pollutants%": [{
                 "%id%": "AIR1",
                 "%emission_rate%": "50.0",
-                "%emission_duration_hours%": "96.0",
+                "%emission_duration_hours%": "144.0",
                 "%release_start%": "00 00 00 00 00"
             }],
             "%output_grids%": [{
                 "%centre%": "35.727513, -118.786136",
-                "%spacing%": "0.1 0.1",
-                "%span%": "10.0 10.0",
-                "%dir%": "./",
-                "%file%": "cdump_CA",
+                "%spacing%": "0.05 0.05",
+                "%span%": "45.0 180.0",
+                "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "%file%": "dump_default",
                 "%vertical_level%": "1\n50",
-                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
+                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
             }],
             "%deposition%": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
-            "%params%": '%name%_%start_locations_count%_%total_run_time%_%output_grids_count%',
+            "%params%": "%name%_%start_locations_count%_%total_run_time%_%output_grids_count%",
             "%control_file%": [{
-                "%template_path%": '/Users/sriramrao/code/farsite/farsite_driver/examples/hysplit',
-                "%template_file%": 'CONTROL_template',
+                "%template_path%": "/Users/sriramrao/code/farsite/farsite_driver/debug/examples/hysplit",
+                "%template_file%": "CONTROL_template",
                 "%name%": "CONTROL",
                 "%path%": "./"
             }],
