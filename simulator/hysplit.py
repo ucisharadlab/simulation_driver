@@ -91,7 +91,7 @@ class Hysplit(CommandLineSimulator):
             "%deposition%": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
             "%params%": "%name%_%start_locations_count%_%total_run_time%_%output_grids_count%",
             "%control_file%": [{
-                "%template_path%": "/Users/sriramrao/code/farsite/farsite_driver/debug/examples/hysplit",
+                "%template_path%": "./debug/examples/hysplit",
                 "%template_file%": "CONTROL_template",
                 "%name%": "CONTROL",
                 "%path%": "./"

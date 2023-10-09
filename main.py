@@ -105,4 +105,4 @@ if __name__ == '__main__':
         # ("Pollutants Count", "Simulation Time (seconds)")
     # ]
     # plots.plot_all(data_paths, labels)
-    test_drive()
+    hysplit_test.locations_test()
