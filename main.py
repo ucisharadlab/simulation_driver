@@ -105,4 +105,9 @@ if __name__ == '__main__':
         # ("Pollutants Count", "Simulation Time (seconds)")
     # ]
     # plots.plot_all(data_paths, labels)
-    hysplit_test.locations_test()
+
+    # hysplit_test.locations_test()
+    # hysplit_test.pollutants_test()
+
+    # hysplit_test.grid_test(False)  # full run
+    hysplit_test.grid_test(True)  # fast run

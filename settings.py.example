@@ -1,0 +1,9 @@
+# Please adapt this file and store it as 'settings.py' on the root of the project.
+# Variable HYSPLIT_PATH stores the (relative) path to the Hysplit directory. Directory "exec" should be found within
+# HYSPLIT_PATH.
+
+from pathlib import Path
+
+HYSPLIT_PATH = "/Users/martin/Programming/simulation_hysplit/"
+
+assert Path(HYSPLIT_PATH).exists()
