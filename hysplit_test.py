@@ -34,8 +34,9 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
             print(f"Duration: {duration_s} s")
             durations.append(duration_s)
             duration_strings.append(str(param[0]) + "\t" + str(duration_s) + "\n")
-            if platform.processor() != "arm":
-                # Sleep when not on arm to avoid overheating.
+            if platform.processor() != "arm" and platform.system() != "Linux":
+                # Sleep when not on arm to avoid overheating. Also, when running on Linux we assume to run on a
+                # sufficiently cooled server machine.
                 time.sleep(5)
 
         with open(timings_path, "w") as timings_file:
