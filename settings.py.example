@@ -4,6 +4,8 @@
 
 from pathlib import Path
 
-HYSPLIT_PATH = "/Users/martin/Programming/simulation_hysplit/"
+HYSPLIT_PATH = "/home/username/hysplit/"
 
 assert Path(HYSPLIT_PATH).exists()
+assert (Path(HYSPLIT_PATH) / "exec").exists(), "Please pass root to Hysplit installation (should include 'exec' directory)."
+
