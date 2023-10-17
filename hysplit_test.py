@@ -1,4 +1,5 @@
 import os
+import platform  # to get the current CPU platform (arm or x86); used for sleeping to avoid overheading.
 import time
 from datetime import datetime
 
@@ -17,23 +18,45 @@ def default_test():
 
 def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
     attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
+    durations = list()
     for attempt in range(0, attempts):
         output_path, timings_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
         hysplit = Hysplit("")
         os.makedirs(os.path.split(output_path)[0], exist_ok=True)
         total_count = len(param_values)
-        durations = list()
+        duration_strings = list()
         for index, param in enumerate(param_values):
             set_outputs(hysplit, output_path, param)
             print(f"Running: {index + 1}, Total: {total_count} | {test_name}: {param[0]}")
             start = datetime.now()
             hysplit.run(param[1])
-            duration = datetime.now() - start
-            print(f"Duration: {duration.total_seconds()}")
-            durations.append(str(param[0]) + "\t" + str(duration.total_seconds()) + "\n")
-            time.sleep(5)
+            duration_s = (datetime.now() - start).total_seconds()
+            print(f"Duration: {duration_s} s")
+            durations.append(duration_s)
+            duration_strings.append(str(param[0]) + "\t" + str(duration_s) + "\n")
+            if platform.processor() != "arm" and platform.system() != "Linux":
+                # Sleep when not on arm to avoid overheating. Also, when running on Linux we assume to run on a
+                # sufficiently cooled server machine.
+                time.sleep(5)
+
         with open(timings_path, "w") as timings_file:
-            timings_file.writelines(durations)
+            timings_file.writelines(duration_strings)
+
+    _, results_path = get_output_paths(output_dir, test_name, 0, attempt_time_suffix)
+    with open(results_path.replace("timings_0.txt", "runtime_measurements.csv"), "w") as timings_file:
+        keys = param_values[0][1].keys()
+        clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in keys]
+        timings_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
+
+        assert len(durations) == attempts * len(param_values)
+        for run_id, duration in enumerate(durations):
+            params_index = run_id % len(param_values)
+            attempt_params = param_values[params_index][1]
+
+            assert list(keys) == list(attempt_params.keys())  # Ensure keys (of hash map) are not in any way sorted differently.
+            clean_values = [value.replace("\n", " ") for value in attempt_params.values()]
+            timings_file.writelines(f"{int(run_id / len(param_values))},{param_values[params_index][0]},{','.join(clean_values)},{duration}\n")
+
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 
@@ -47,6 +70,41 @@ def locations_test(start=1, end=9, step=1, attempts=1):
             locations.append(" ".join([str(val + (source - 1) * location_step) for val in source_location]))
         values.append((str(len(locations)), {"%start_locations%": locations}))
     test("start_locations", values, attempts)
+
+
+def grid_test(test_run = False):
+    # For first initial runtime measurements, we vary the following parameters of Hysplit:
+    #   - total_run_time (days of simulation)
+    #   - output_grid.spacing[x, y] (the default values define a central point in LA and a rectangle surrounding it
+    #                                that stretches +/- 0.5 in each direction (lat/long); the smaller the spacing the
+    #                                more points are being calculated).
+    #   - output_grid.sampling: "00 00 00 00 00\n00 00 00 00 00\n00 HH MM"
+
+    # Parameter values with larger indexes are slower to calculate.
+    total_run_time_values = ["1", "6", "12", "24", "36", "48", "60", "72", "96", "120", "180", "240"]
+    output_grid_spacing_values = ["0.25", "0.2", "0.15", "0.1", "0.05", "0.02", "0.01", "0.005", "0.001"]
+    output_grid_sampling_rates = ["08 00", "04 00", "02 00", "01 00", "00 30", "00 15", "00 10", "00 05"]
+
+    # List slicing end ([:end]) of items per parameter. Unset when not testing.
+    var_limit_for_testing = 2 if test_run else None
+
+    hysplit = Hysplit("")
+    default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
+
+    parameter_values = list()
+    parameter_combination_id = 1
+    for total_run_time in total_run_time_values[:var_limit_for_testing]:
+        for output_grid_spacing in output_grid_spacing_values[:var_limit_for_testing]:
+            for output_grid_sample_rate in output_grid_sampling_rates[:var_limit_for_testing]:
+                sampling = default_sampling[:-5] + output_grid_sample_rate
+                parameter_dict = {"%total_run_time%": total_run_time,
+                                  "%output_grids%::%spacing%": f"{output_grid_spacing} {output_grid_spacing}",
+                                  "%output_grids%::%sampling%": sampling}
+                parameter_values.append((parameter_combination_id, parameter_dict))
+                parameter_combination_id += 1
+
+    # Run two rounds (or 'attempts') when testing, otherwise 5.
+    test("grid_measurement", parameter_values, 2 if test_run else 5)
 
 
 def start_locations_spacing_test():

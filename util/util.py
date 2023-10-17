@@ -33,7 +33,7 @@ class StringUtil:
         for key in macros.keys():
             if key not in initial_text:
                 continue
-            if type(macros[key]) is not list and type(macros[key]) is not tuple:
+            if type(macros[key]) is not list and type(macros[key]) is not tuple and type(macros[key]) is not dict:
                 initial_text = initial_text.replace(key, macros[key])
                 continue
             initial_text = initial_text.replace(key, StringUtil.collate(macros[key]))

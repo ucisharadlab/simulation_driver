@@ -26,6 +26,15 @@ class Simulator:
     def set_parameters(self, params: dict) -> None:
         if params is None or len(params) < 1: return
         for key in params.keys():
+            if "::" in key:
+                assert key.count("::") == 1
+
+                outer_key = key[:key.find("::")]
+                inner_key = key[key.find("::") + 2:]
+
+                self.execution_params[outer_key][0][inner_key] = params[key]
+                continue
+
             self.execution_params[key] = params[key]
 
     def preprocess(self) -> None:

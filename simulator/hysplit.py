@@ -1,5 +1,7 @@
 import csv
 import os
+import settings
+
 from decimal import *
 from datetime import datetime
 
@@ -38,9 +40,9 @@ class Hysplit(CommandLineSimulator):
             dump_file.writelines(dump_files)
         output_file = os.path.join(output_dir, f"data_dump_{time_suffix}")
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
-        command = (f"/Users/sriramrao/code/hysplit/hysplit/exec/hycs_std && echo 'Done simulation' && "
-                   # f"/Users/sriramrao/code/hysplit/hysplit/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
-                   f"/Users/sriramrao/code/hysplit/hysplit/exec/con2asc -i{dump_files[0]} -s -u1.0E+9 -d && echo 'Done conversion' ")
+        command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
+                   # f"/Users/martin/Programming/simulation_hysplit/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
+                   f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{dump_files[0]} -s -u1.0E+9 -d && echo 'Done conversion' ")
         return command
 
     def get_results(self) -> [dict]:
@@ -66,10 +68,10 @@ class Hysplit(CommandLineSimulator):
     def get_defaults(self, params: dict = None) -> dict:
         return {
             "%name%": "test",
-            "%start_locations%": ["35.727513, -118.786136"],
+            "%start_locations%": ["34.12448, -118.40778"],  # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
             "%total_run_time%": "240",
             "%input_data_grids%": [{
-                    "%dir%": "/Users/sriramrao/code/hysplit/hysplit/working/",
+                    "%dir%": f"{settings.HYSPLIT_PATH}/working/",
                     "%file%": "oct1618.BIN"
                 }
             ],
@@ -80,9 +82,9 @@ class Hysplit(CommandLineSimulator):
                 "%release_start%": "00 00 00 00 00"
             }],
             "%output_grids%": [{
-                "%centre%": "35.727513, -118.786136",
+                "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
-                "%span%": "45.0 180.0",
+                "%span%": "0.5 0.5",
                 "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_default",
                 "%vertical_level%": "1\n50",
