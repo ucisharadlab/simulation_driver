@@ -2,21 +2,18 @@ import json
 import time
 from datetime import datetime
 
-import test
-from plan.estimator import SimpleEstimator
 from plan.planner import Planner, get_planner
 from repo.edb_repo import EdbRepo
-from simulator.hysplit import Hysplit
-from simulator.simulator import NoopSimulator, Simulator
+from simulator.simulator import Simulator
+from util import reflection_util
 
 planners = dict()
+threads = dict()
 
 
 def run(repo: EdbRepo, sleep: int = 2):
     while True:
         query_load = bundle(repo.get_query_load())
-        set_planner('hysplit2', '"plan.planner.GreedyPlanner"',
-                    repo.get_test_data('hysplit_test_data'))
         for learn_query in query_load["learn"]:
             _, simulator_name, planner_name, test_table = learn_query["query"].split(":")
             set_planner(simulator_name, planner_name, repo.get_test_data(test_table))
@@ -48,8 +45,12 @@ def run(repo: EdbRepo, sleep: int = 2):
         time.sleep(sleep)
 
 
+def plan_and_simulate():
+    pass
+
+
 def set_planner(simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
-    planner = get_planner(planner_name, SimpleEstimator())
+    planner = get_planner(planner_name)
     planner.learn(get_simulator(simulator_name), test_data)
     planners[simulator_name] = planner
     return planner
@@ -86,7 +87,5 @@ def parse_query(query: dict, repo: EdbRepo) -> dict:
     return query
 
 
-def get_simulator(name: str) -> Simulator:
-    if 'hysplit' in name.lower():
-        return Hysplit(["%param1%"])
-    return NoopSimulator(["%param1%"])
+def get_simulator(full_class_name: str) -> Simulator:
+    return reflection_util.get_instance(full_class_name)

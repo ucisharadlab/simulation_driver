@@ -2,11 +2,16 @@ import json
 
 from plan.estimator import Estimator
 from simulator.simulator import Simulator
+from util import reflection_util
 
 
 class Planner:
-    def __init__(self, estimator: Estimator):
-        self.estimator = estimator
+    def __init__(self):
+        self.estimator = None
+        self.set_estimator("plan.estimator.SimpleEstimator")
+
+    def set_estimator(self, estimator_name):
+        self.estimator = reflection_util.get_instance(estimator_name)
 
     def learn(self, processor: Simulator, test_data: dict) -> None:
         self.estimator.learn(processor, test_data)
@@ -32,5 +37,5 @@ class GreedyPlanner(Planner):
         return available_params
 
 
-def get_planner(name: str, estimator: Estimator) -> Planner:
-    return GreedyPlanner(estimator)
+def get_planner(name: str) -> Planner:
+    return reflection_util.get_instance(name)
