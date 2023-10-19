@@ -107,9 +107,21 @@ def grid_test(test_run = False):
     test("grid_measurement", parameter_values, 2 if test_run else 5)
 
 
-def start_locations_spacing_test():
-    # from
-    pass
+def coinciding_points_check():
+    parameter_values = list()
+    sampling_prefix = Hysplit("").get_defaults()["%output_grids%"][0]["%sampling%"][:-5]
+    parameter_dict = {"%%": f"",
+                      "%output_grids%::%spacing%": f"0.05 0.05",
+                      "%output_grids%::%sampling%": sampling_prefix + "01 00"}
+    parameter_values.append((1, parameter_dict.copy()))
+    parameter_dict["%output_grids%::%spacing%"] = f"0.1 0.1"
+    parameter_values.append((2, parameter_dict.copy()))
+    parameter_dict["%output_grids%::%spacing%"] = f"0.05 0.05"
+    parameter_dict["%output_grids%::%sampling%"] = sampling_prefix + f"02 00"
+    parameter_values.append((3, parameter_dict.copy()))
+    parameter_dict["%output_grids%::%spacing%"] = f"0.1 0.1"
+    parameter_values.append((4, parameter_dict.copy()))
+    test("coinciding_points", parameter_values, 1)
 
 
 def total_run_time_test(start=24, end=10*24, step=24, attempts=1):

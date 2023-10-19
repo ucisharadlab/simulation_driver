@@ -14,14 +14,12 @@ planners = dict()
 
 def run(repo: EdbRepo, sleep: int = 2):
     while True:
-        completed = list()
         query_load = bundle(repo.get_query_load())
         set_planner('hysplit2', '"plan.planner.GreedyPlanner"',
                     repo.get_test_data('hysplit_test_data'))
         for learn_query in query_load["learn"]:
             _, simulator_name, planner_name, test_table = learn_query["query"].split(":")
             set_planner(simulator_name, planner_name, repo.get_test_data(test_table))
-            completed.append(learn_query["id"])
         for query in query_load["data"]:
             execution_info = dict()
             parsed_query = parse_query(query, repo)
@@ -46,8 +44,6 @@ def run(repo: EdbRepo, sleep: int = 2):
             projections = simulator.get_results()
             repo.store_result(query["output_type"], projections)
             repo.log(simulator_name, params, execution_info)
-            # completed.append(query["id"])
-        repo.complete_queries(completed)
         print("Finished cycle")
         time.sleep(sleep)
 
