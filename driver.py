@@ -4,56 +4,60 @@ from datetime import datetime
 
 from plan.planner import Planner, get_planner
 from repo.edb_repo import EdbRepo
-from simulator.simulator import Simulator
+from simulator.simulator import Simulator, get_simulator
 from util import reflection_util
 
-planners = dict()
-threads = dict()
 
+class Driver:
+    def __init__(self, simulator_repo, sleep_seconds: int = 0):
+        self.repo = simulator_repo
+        self.planners = dict()
+        self.threads = dict()
+        self.sleep_seconds = sleep_seconds
 
-def run(repo: EdbRepo, sleep: int = 2):
-    while True:
-        query_load = bundle(repo.get_query_load())
-        for learn_query in query_load["learn"]:
-            _, simulator_name, planner_name, test_table = learn_query["query"].split(":")
-            set_planner(simulator_name, planner_name, repo.get_test_data(test_table))
-        for query in query_load["data"]:
-            execution_info = dict()
-            parsed_query = parse_query(query, repo)
-            print(f"Query: {parsed_query['id']}, fetching relevant simulators")
-            simulator_details = repo.get_simulators(parsed_query["output_type"])
-            if len(simulator_details) <= 0:
-                continue
-            simulator_details = simulator_details[0]
-            simulator_name = simulator_details["name"]
-            print("Planning simulator input")
-            previous_runs = repo.get_log(simulator_name)
-            choice = planners[simulator_name].get_best_choice(previous_runs, parsed_query)
-            if choice is None:
-                continue
-            params = json.loads(list(choice.keys())[0])
-            simulator = get_simulator(simulator_name)
-            print("Running simulation")
-            start = datetime.now()
-            simulator.run(params)
-            execution_info["duration"] = (datetime.now() - start).total_seconds()
-            print("Fetching and storing projected outputs")
-            projections = simulator.get_results()
-            repo.store_result(query["output_type"], projections)
-            repo.log(simulator_name, params, execution_info)
-        print("Finished cycle")
-        time.sleep(sleep)
+    def run(self):
+        while True:
+            query_load = bundle(self.repo.get_query_load())
+            for learn_query in query_load["learn"]:
+                _, simulator_name, planner_name, test_table = learn_query["query"].split(":")
+                self.set_planner(simulator_name, planner_name, self.repo.get_test_data(test_table))
+            for query in query_load["data"]:
+                parsed_query = parse_query(query, self.repo)
+                simulator_details = self.repo.get_simulator(query["output_type"])
+                if len(simulator_details.keys()) <= 0:
+                    continue
+                simulator_name = simulator_details["name"]
+                execution_info = self.plan_and_simulate(parsed_query, simulator_name)
+                self.repo.log(simulator_name, execution_info)
+            print("Finished cycle")
+            time.sleep(self.sleep_seconds)
 
+    def plan_and_simulate(self, query: dict, simulator_name: str):
+        print(f"Query: {query['id']}, beginning plan and simulate")
+        print("Planning simulator input")
+        previous_runs = self.repo.get_log(simulator_name)
+        choice = self.planners[simulator_name].get_best_choice(previous_runs, query)
+        if choice is None:
+            return dict()
 
-def plan_and_simulate():
-    pass
+        execution_info = dict()
+        execution_info["params"] = json.loads(list(choice.keys())[0])
+        simulator = get_simulator(simulator_name)
+        print("Running simulation")
+        start = datetime.now()
+        simulator.run(execution_info["params"])
+        execution_info["duration"] = (datetime.now() - start).total_seconds()
+        results = simulator.get_results()
 
+        print("Storing projected outputs")
+        self.repo.store_result(query["output_type"], results)
+        return execution_info
 
-def set_planner(simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
-    planner = get_planner(planner_name)
-    planner.learn(get_simulator(simulator_name), test_data)
-    planners[simulator_name] = planner
-    return planner
+    def set_planner(self, simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
+        planner = get_planner(planner_name)
+        planner.learn(get_simulator(simulator_name), test_data)
+        self.planners[simulator_name] = planner
+        return planner
 
 
 def bundle(query_load: [dict]) -> [dict]:
@@ -85,7 +89,3 @@ def parse_query(query: dict, repo: EdbRepo) -> dict:
     query["output_type"] = result[2]
     query["join_key"] = result[1]
     return query
-
-
-def get_simulator(full_class_name: str) -> Simulator:
-    return reflection_util.get_instance(full_class_name)
