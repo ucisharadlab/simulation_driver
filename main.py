@@ -1,40 +1,16 @@
-import os
-from datetime import datetime, timedelta
-import random
-
 import driver
-from cell_mappings import generate_cell_mapping
-import hysplit_test
-import plots
+import settings
 from repo.edb_repo import EdbRepo
-from repo.sql_repo import SqlRepo
-from simulator.farsite import FarSite
-from simulator.hysplit import Hysplit
 
 
-def test_drive():
+def test_drive(sleep_seconds):
     db_repo = EdbRepo()
-    driver.run(db_repo)
-
-
-def cleanup():
-    repo = EdbRepo()
-    repo.remove_simulator("FireSim")
-    repo.remove_simulated_columns("fire_presence", "fire_presence")
-    print("clean")
-
-
-def start_driver():
-    cleanup()
-    repo = EdbRepo()
-    repo.add_simulator("FireSim", "FarSite", "presence", "{\"time_extent\": 60, \"\": \"\"}")
-    repo.add_simulated_columns("fire_presence", "fire_map", "cell_id, endtime", "fire_presence", "presence")
-    test_drive()
-    print("done")
+    simulation_driver = driver.Driver(db_repo, sleep_seconds)
+    simulation_driver.run()
 
 
 if __name__ == '__main__':
-    test_drive()
+    test_drive(settings.DRIVER_SLEEP_SECONDS)
     # hysplit_test.coinciding_points_check()
 
     # hysplit_test.grid_test(False)  # full run
