@@ -18,8 +18,10 @@ class Driver:
     def run(self):
         while True:
             query_load = bundle(self.repo.get_query_load())
+            print(f"Initiating learn steps")
             self.handle_learn_queries(query_load["learn"])
             self.handle_data_queries(query_load["data"])
+            print(f"Checking ongoing simulation statuses")
             self.check_simulation_statuses()
             print("Finished cycle")
             time.sleep(self.sleep_seconds)
@@ -31,6 +33,7 @@ class Driver:
 
     def handle_data_queries(self, data_queries: list):
         for query in data_queries:
+            print(f"Query: {query['id']}, setting up execution")
             parsed_query = parse_query(query, self.repo)
             simulator_details = self.repo.get_simulator(query["output_type"])
             if len(simulator_details.keys()) <= 0:
@@ -50,8 +53,6 @@ class Driver:
         self.threads = [t for t in self.threads if not t.handled]
 
     def run_simulation(self, query: dict, simulator_name: str, params: dict):
-        print(f"Query: {query['id']}, beginning plan and simulate")
-        print("Planning simulator input")
         execution_info = dict()
         execution_info["params"] = params
         simulator = get_simulator(simulator_name)
@@ -62,7 +63,7 @@ class Driver:
         execution_info["duration"] = (datetime.now() - start).total_seconds()
         results = simulator.get_results()
 
-        print("Storing projected outputs")
+        print("Storing projected outputs and logs")
         self.repo.store_result(query["output_type"], results)
         self.repo.log(simulator_name, execution_info)
 
