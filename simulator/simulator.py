@@ -4,7 +4,7 @@ from util import reflection_util
 
 
 class Simulator:
-    def __init__(self, params: [str]):
+    def __init__(self, params: [str] = None):
         self.params = params
         self.execution_params = dict()
         self.set_defaults()

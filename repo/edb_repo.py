@@ -15,11 +15,16 @@ class EdbRepo(SqlRepo):
         self.remove_simulator(name)
         self.add_simulator(name, new_class_name, new_type, new_parameters)
 
-    def get_simulator(self, output_type: str):
+    def get_simulator_by_type(self, output_type: str):
         row = self.fetch_entity(f"SELECT s.id, name, class_name, output_type, planner, parameters "
                                 f"FROM simulator s INNER JOIN simulator_status ss "
                                 f"ON s.name = ss.simulator_name "
                                 f"WHERE output_type = '{output_type}' AND status = 0 LIMIT 1")
+        return dict_from_tuple(["id", "name", "class_name", "output_type", "planner", "parameters"], row)
+
+    def get_simulator_by_name(self, name: str):
+        row = self.fetch_entity(f"SELECT id, name, class_name, output_type, planner, parameters "
+                                f"FROM simulator s WHERE name = '{name}'")
         return dict_from_tuple(["id", "name", "class_name", "output_type", "planner", "parameters"], row)
 
     def add_simulated_columns(self, name: str, table: str, key_columns: [str], columns: [str], data_type: str):
@@ -37,9 +42,7 @@ class EdbRepo(SqlRepo):
         for row in rows:
             self.execute(f"INSERT INTO {data_type}_data (timestamp, location, name, concentration) VALUES "
                          f"(to_timestamp('{row['timestamp']}', 'YYYY-MM-DD HH24:MI')::timestamp, "
-                         f"'{row['location']}', '{row['name']}', '{row['concentration']}')"
-                         f"ON CONFLICT (timestamp, location, name)"
-                         f"DO UPDATE SET concentration = {row['concentration']}")
+                         f"'{row['location']}', '{row['name']}', '{row['concentration']}')")
 
     def get_query_load(self) -> [dict]:
         rows = self.fetch_entities(

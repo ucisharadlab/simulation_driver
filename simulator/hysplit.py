@@ -1,5 +1,8 @@
 import csv
 import os
+import shutil
+import threading
+
 import settings
 
 from decimal import *
@@ -11,6 +14,11 @@ from util.util import FileUtil, StringUtil
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
+        working_dir = f"./debug/hysplit_out/{threading.get_ident()}/"
+        self.execution_params["%working_dir%"] = working_dir
+        os.makedirs(working_dir, exist_ok=True)
+        shutil.copyfile("./ASCDATA.CFG", f"{working_dir}ASCDATA.CFG")
+        os.chdir(working_dir)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
                 continue
@@ -28,10 +36,14 @@ class Hysplit(CommandLineSimulator):
     def prepare_command(self) -> str:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
-        self.generate_input()
-        dump_files = list()
+        self.execution_params["%output_grids%"][0]["%file%"] = StringUtil.macro_replace(
+            self.execution_params, self.execution_params["%output_grids%"][0]["%file%"])
+
         output_grids = self.get_parameter("%output_grids%")
         output_dir = output_grids[0]['%dir%']
+        os.makedirs(output_dir, exist_ok=True)
+        self.generate_input()
+        dump_files = list()
         for grid in output_grids:
             dump_files.append(os.path.join(grid['%dir%'], grid['%file%']))
         time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -41,7 +53,7 @@ class Hysplit(CommandLineSimulator):
         output_file = os.path.join(output_dir, f"data_dump_{time_suffix}")
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
         command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
-                   # f"/Users/martin/Programming/simulation_hysplit/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
+                   f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
                    f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{dump_files[0]} -s -u1.0E+9 -d && echo 'Done conversion' ")
         return command
 
@@ -51,11 +63,12 @@ class Hysplit(CommandLineSimulator):
         data = list()
         with open(filename) as file:
             lines = csv.reader(file, delimiter=",")
-            name = next(lines)[6]
+            line = next(lines)
+            name = line[6]
             lines = [[value.strip() for value in line] for line in lines]
             data = [{"timestamp": f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00",
-                     "location": f"({Decimal(line[4]) - span / 2}, {Decimal(line[5]) - span / 2}), "
-                                 f"({Decimal(line[4]) + span / 2}, {Decimal(line[5]) + span / 2})",
+                     "location": f"({Decimal(line[4]) - span / 2},{Decimal(line[5]) - span / 2}), "
+                                 f"({Decimal(line[4]) + span / 2},{Decimal(line[5]) + span / 2})",
                      "name": name,
                      "concentration": line[6]} for line in lines]
         return data
@@ -66,6 +79,7 @@ class Hysplit(CommandLineSimulator):
         self.set_parameter(count_key, str(len(self.get_parameter(key))))
 
     def get_defaults(self, params: dict = None) -> dict:
+        # TODO: Make relative paths relative to repo root
         return {
             "%name%": "test",
             "%start_locations%": ["34.12448, -118.40778"],  # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
@@ -85,13 +99,13 @@ class Hysplit(CommandLineSimulator):
                 "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
                 "%span%": "0.5 0.5",
-                "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
-                "%file%": "dump_default",
+                "%dir%": f".{self.execution_params["%working_dir%"]}{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
                 "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
             }],
             "%deposition%": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
-            "%params%": "%name%_%start_locations_count%_%total_run_time%_%output_grids_count%",
+            "%params%": "%name%_%start_locations_count%_%total_run_time%_%output_grids_count%_%pollutants_count%",
             "%control_file%": [{
                 "%template_path%": "./debug/examples/hysplit",
                 "%template_file%": "CONTROL_template",

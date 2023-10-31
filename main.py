@@ -1,10 +1,15 @@
 from driver import Driver
 import settings
 from repo.edb_repo import EdbRepo
+from test import hysplit_test
+from test.driver_test import driver_data_queries_test
 
 
 def test_drive(sleep_seconds):
-    simulation_driver = Driver(EdbRepo(), sleep_seconds)
+    repo = EdbRepo()
+    simulation_driver = Driver(repo, sleep_seconds)
+    simulation_driver.set_planner("hysplit", "plan.planner.GreedyPlanner",
+                                  repo.get_test_data("hysplit_test_data"))
     simulation_driver.run()
 
 

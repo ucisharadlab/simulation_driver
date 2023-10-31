@@ -35,22 +35,28 @@ class Driver:
         for query in data_queries:
             print(f"Query: {query['id']}, setting up execution")
             parsed_query = parse_query(query, self.repo)
-            simulator_details = self.repo.get_simulator(query["output_type"])
+            simulator_details = self.repo.get_simulator_by_type(parsed_query["output_type"])
             if len(simulator_details.keys()) <= 0:
                 continue
             simulator_name = simulator_details["name"]
-            previous_runs = self.repo.get_log(simulator_name)
-            plan = self.planners[simulator_name].get_plan(previous_runs, query)
-            for params in plan:
-                thread = threading.Thread(target=self.run_simulation, args=(parsed_query, simulator_name, params))
+            plan = self.planners[simulator_name].get_plan(self.repo.get_log(simulator_name), parsed_query)
+            for params, cost in plan:
+                thread = threading.Thread(target=self.run_simulation,
+                                          args=(parsed_query, simulator_details["class_name"], json.loads(params, strict=False)))
                 self.threads.append(thread)
+                thread.handled = False
                 thread.start()
 
-    def check_simulation_statuses(self):
+            for thread in self.threads:
+                thread.join()
+
+    def check_simulation_statuses(self) -> int:
+        print(f"Running threads: {len(self.threads)}")
         for t in self.threads:
             if not t.is_alive():
                 t.handled = True
         self.threads = [t for t in self.threads if not t.handled]
+        return len(self.threads)
 
     def run_simulation(self, query: dict, simulator_name: str, params: dict):
         execution_info = dict()
@@ -60,16 +66,17 @@ class Driver:
         print("Running simulation")
         start = datetime.now()
         simulator.run(execution_info["params"])
-        execution_info["duration"] = (datetime.now() - start).total_seconds()
         results = simulator.get_results()
 
         print("Storing projected outputs and logs")
         self.repo.store_result(query["output_type"], results)
+        execution_info["duration"] = (datetime.now() - start).total_seconds()
         self.repo.log(simulator_name, execution_info)
 
     def set_planner(self, simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
         planner = get_planner(planner_name)
-        planner.learn(get_simulator(simulator_name), test_data)
+        simulator = self.repo.get_simulator_by_name(simulator_name)
+        planner.learn(get_simulator(simulator["class_name"]), test_data)
         self.planners[simulator_name] = planner
         return planner
 

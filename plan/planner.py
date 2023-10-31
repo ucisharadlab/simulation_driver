@@ -33,20 +33,20 @@ class GreedyPlanner(Planner):
 
         plan = list()
         for param, cost in chosen_params:
-            if json.loads(param) not in previous_params:
-                plan.append({param: cost})
+            if json.loads(param, strict=False) not in previous_params:
+                plan.append((param, cost))
         return plan
 
     def choose_parameters(self, ordered_parameters: list):
         plan = list()
-        if len(ordered_parameters) == 0:
+        params_count = len(ordered_parameters)
+        if params_count == 0:
             return plan
         plan.append(ordered_parameters[0])
-        if len(ordered_parameters) == 1:
+        if params_count == 2:
+            plan.append(ordered_parameters[1])
             return plan
-        plan.append(ordered_parameters[1])
-        if len(ordered_parameters) == 2:
-            return plan
+        # plan.append(ordered_parameters[-2])
         plan.insert(0, ordered_parameters[-1])
         return plan
 
