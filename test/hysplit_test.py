@@ -5,10 +5,11 @@ from datetime import datetime
 
 from repo.edb_repo import EdbRepo
 from simulator.hysplit import Hysplit
+from test.test_data import slow_params
 
 
 def default_test():
-    hysplit = Hysplit("")
+    hysplit = Hysplit()
     start = datetime.now()
     hysplit.run()
     end = datetime.now()
@@ -21,7 +22,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
     durations = list()
     for attempt in range(0, attempts):
         output_path, timings_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
-        hysplit = Hysplit("")
+        hysplit = Hysplit()
         os.makedirs(os.path.split(output_path)[0], exist_ok=True)
         total_count = len(param_values)
         duration_strings = list()
@@ -224,6 +225,11 @@ def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
         default_grid["%sampling%"] = f"00 00 00 00 00\n00 00 00 00 00\n00 {rate:02d} 00"
         test_values.append((rate * 60, {param_key: [default_grid.copy()]}))
     return test("sampling", test_values, attempts)
+
+
+def slow_hysplit_run():
+    parameter_dict = [(1, slow_params)]
+    return test("slow_run", parameter_dict, 1)
 
 
 def decimal_range(start, stop, increment):

@@ -1,58 +1,84 @@
 import json
+import threading
 import time
 from datetime import datetime
 
-import test
-from plan.estimator import SimpleEstimator
 from plan.planner import Planner, get_planner
 from repo.edb_repo import EdbRepo
-from simulator.hysplit import Hysplit
-from simulator.simulator import NoopSimulator, Simulator
-
-planners = dict()
+from simulator.simulator import get_simulator
 
 
-def run(repo: EdbRepo, sleep: int = 2):
-    while True:
-        query_load = bundle(repo.get_query_load())
-        set_planner('hysplit2', '"plan.planner.GreedyPlanner"',
-                    repo.get_test_data('hysplit_test_data'))
-        for learn_query in query_load["learn"]:
-            _, simulator_name, planner_name, test_table = learn_query["query"].split(":")
-            set_planner(simulator_name, planner_name, repo.get_test_data(test_table))
-        for query in query_load["data"]:
-            execution_info = dict()
-            parsed_query = parse_query(query, repo)
-            print(f"Query: {parsed_query['id']}, fetching relevant simulators")
-            simulator_details = repo.get_simulators(parsed_query["output_type"])
-            if len(simulator_details) <= 0:
+class Driver:
+    def __init__(self, simulator_repo, sleep_seconds: int = 0):
+        self.repo = simulator_repo
+        self.planners = dict()
+        self.threads = list()
+        self.sleep_seconds = sleep_seconds
+
+    def run(self):
+        while True:
+            query_load = bundle(self.repo.get_query_load())
+            print(f"Initiating learn steps")
+            self.handle_learn_queries(query_load["learn"])
+            self.handle_data_queries(query_load["data"])
+            print(f"Checking ongoing simulation statuses")
+            self.check_simulation_statuses()
+            print("Finished cycle")
+            time.sleep(self.sleep_seconds)
+
+    def handle_learn_queries(self, learn_queries: list):
+        for query in learn_queries:
+            _, simulator_name, planner_name, test_table = query["query"].split(":")
+            self.set_planner(simulator_name, planner_name, self.repo.get_test_data(test_table))
+
+    def handle_data_queries(self, data_queries: list):
+        for query in data_queries:
+            print(f"Query: {query['id']}, setting up execution")
+            parsed_query = parse_query(query, self.repo)
+            simulator_details = self.repo.get_simulator_by_type(parsed_query["output_type"])
+            if len(simulator_details.keys()) <= 0:
                 continue
-            simulator_details = simulator_details[0]
             simulator_name = simulator_details["name"]
-            print("Planning simulator input")
-            previous_runs = repo.get_log(simulator_name)
-            choice = planners[simulator_name].get_best_choice(previous_runs, parsed_query)
-            if choice is None:
-                continue
-            params = json.loads(list(choice.keys())[0])
-            simulator = get_simulator(simulator_name)
-            print("Running simulation")
-            start = datetime.now()
-            simulator.run(params)
-            execution_info["duration"] = (datetime.now() - start).total_seconds()
-            print("Fetching and storing projected outputs")
-            projections = simulator.get_results()
-            repo.store_result(query["output_type"], projections)
-            repo.log(simulator_name, params, execution_info)
-        print("Finished cycle")
-        time.sleep(sleep)
+            plan = self.planners[simulator_name].get_plan(self.repo.get_log(simulator_name), parsed_query)
+            for params, cost in plan:
+                thread = threading.Thread(target=self.run_simulation,
+                                          args=(parsed_query, simulator_details["class_name"], json.loads(params, strict=False)))
+                self.threads.append(thread)
+                thread.handled = False
+                thread.start()
 
+            for thread in self.threads:
+                thread.join()
 
-def set_planner(simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
-    planner = get_planner(planner_name, SimpleEstimator())
-    planner.learn(get_simulator(simulator_name), test_data)
-    planners[simulator_name] = planner
-    return planner
+    def check_simulation_statuses(self) -> int:
+        print(f"Running threads: {len(self.threads)}")
+        for t in self.threads:
+            if not t.is_alive():
+                t.handled = True
+        self.threads = [t for t in self.threads if not t.handled]
+        return len(self.threads)
+
+    def run_simulation(self, query: dict, simulator_name: str, params: dict):
+        execution_info = dict()
+        execution_info["params"] = params
+        simulator = get_simulator(simulator_name)
+
+        print("Running simulation")
+        start = datetime.now()
+        simulator.run(execution_info["params"])
+        results = simulator.get_results()
+
+        print("Storing projected outputs and logs")
+        self.repo.store_result(query["output_type"], results)
+        execution_info["duration"] = (datetime.now() - start).total_seconds()
+        self.repo.log(simulator_name, execution_info)
+
+    def set_planner(self, simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
+        planner = get_planner(planner_name)
+        simulator = self.repo.get_simulator_by_name(simulator_name)
+        planner.learn(get_simulator(simulator["class_name"]), test_data)
+        self.planners[simulator_name] = planner
+        return planner
 
 
 def bundle(query_load: [dict]) -> [dict]:
@@ -78,15 +104,11 @@ def parse_query(query: dict, repo: EdbRepo) -> dict:
         check_query = (f"SELECT column_name, type_key, data_type FROM simulated_columns "
                        f"WHERE table_name = '{from_query}' AND column_name = '{column}'")
         result = repo.fetch_entity(check_query)
-        if result: break
-    if not result: return query
+        if result:
+            break
+    if not result:
+        return query
     query["simulated_column"] = result[0]
     query["output_type"] = result[2]
     query["join_key"] = result[1]
     return query
-
-
-def get_simulator(name: str) -> Simulator:
-    if 'hysplit' in name.lower():
-        return Hysplit(["%param1%"])
-    return NoopSimulator(["%param1%"])

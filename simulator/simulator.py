@@ -1,8 +1,10 @@
 import os
 
+from util import reflection_util
+
 
 class Simulator:
-    def __init__(self, params: [str]):
+    def __init__(self, params: [str] = None):
         self.params = params
         self.execution_params = dict()
         self.set_defaults()
@@ -82,3 +84,7 @@ class NoopSimulator(CommandLineSimulator):
 
     def get_results(self) -> [dict]:
         return [{"cell_id": 25, "fire_presence": 1}]
+
+
+def get_simulator(full_class_name: str) -> Simulator:
+    return reflection_util.get_instance(full_class_name)

@@ -2,11 +2,16 @@ import json
 
 from plan.estimator import Estimator
 from simulator.simulator import Simulator
+from util import reflection_util
 
 
 class Planner:
-    def __init__(self, estimator: Estimator):
-        self.estimator = estimator
+    def __init__(self):
+        self.estimator = None
+        self.set_estimator("plan.estimator.SimpleEstimator")
+
+    def set_estimator(self, estimator_name):
+        self.estimator = reflection_util.get_instance(estimator_name)
 
     def learn(self, processor: Simulator, test_data: dict) -> None:
         self.estimator.learn(processor, test_data)
@@ -24,13 +29,27 @@ class GreedyPlanner(Planner):
         parameter_choices = self.estimator.dump_model()
         ordered_parameters = sorted(parameter_choices.items(), key=lambda e: e[1]["cost"])
         previous_params = [entry["params"] for entry in log]
-        available_params = list()
-        for param, cost in ordered_parameters:
-            if json.loads(param) not in previous_params:
-                available_params.append({param: cost})
-        # ordered_parameters = [param for param in ordered_parameters if param not in previous_params]
-        return available_params
+        chosen_params = self.choose_parameters(ordered_parameters)
+
+        plan = list()
+        for param, cost in chosen_params:
+            if json.loads(param, strict=False) not in previous_params:
+                plan.append((param, cost))
+        return plan
+
+    def choose_parameters(self, ordered_parameters: list):
+        plan = list()
+        params_count = len(ordered_parameters)
+        if params_count == 0:
+            return plan
+        plan.append(ordered_parameters[0])
+        if params_count == 2:
+            plan.append(ordered_parameters[1])
+            return plan
+        # plan.append(ordered_parameters[-2])
+        plan.insert(0, ordered_parameters[-1])
+        return plan
 
 
-def get_planner(name: str, estimator: Estimator) -> Planner:
-    return GreedyPlanner(estimator)
+def get_planner(name: str) -> Planner:
+    return reflection_util.get_instance(name)
