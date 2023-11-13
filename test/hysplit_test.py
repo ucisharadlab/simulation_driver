@@ -125,6 +125,15 @@ def coinciding_points_check():
     test("coinciding_points", parameter_values, 1)
 
 
+def ground_truth():
+    hysplit = Hysplit()
+    default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
+    sampling = default_sampling[:-5] + "00 01"
+    parameter_dict = {"%output_grids%::%spacing%": f"0.001 0.001",
+                      "%output_grids%::%sampling%": sampling}
+    test("ground_truth", [(1, parameter_dict)], 1)
+
+
 def total_run_time_test(start=24, end=10*24, step=24, attempts=1):
     test_values = list()
     for time in range(start, end + step, step):
