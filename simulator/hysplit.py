@@ -14,11 +14,11 @@ from util.util import FileUtil, StringUtil
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        working_dir = f"./debug/hysplit_out/{threading.get_ident()}/"
-        self.execution_params["%working_dir%"] = working_dir
-        os.makedirs(working_dir, exist_ok=True)
-        shutil.copyfile("./ASCDATA.CFG", f"{working_dir}ASCDATA.CFG")
-        os.chdir(working_dir)
+        # working_dir = f"./debug/hysplit_out/{threading.get_ident()}/"
+        # self.execution_params["%working_dir%"] = working_dir
+        # os.makedirs(working_dir, exist_ok=True)
+        # shutil.copyfile("./ASCDATA.CFG", f"{working_dir}ASCDATA.CFG")
+        # os.chdir(working_dir)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
                 continue
@@ -59,17 +59,15 @@ class Hysplit(CommandLineSimulator):
 
     def get_results(self) -> [dict]:
         filename = self.get_parameter("%data_output%")
-        span = Decimal(self.get_parameter("%output_grids%")[0]["%spacing%"].split(" ")[0])
-        data = list()
         with open(filename) as file:
             lines = csv.reader(file, delimiter=",")
             line = next(lines)
-            name = line[6]
+            pollutant_name = line[6]
             lines = [[value.strip() for value in line] for line in lines]
             data = [{"timestamp": f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00",
-                     "location": f"({Decimal(line[4]) - span / 2},{Decimal(line[5]) - span / 2}), "
-                                 f"({Decimal(line[4]) + span / 2},{Decimal(line[5]) + span / 2})",
-                     "name": name,
+                     "latitude": f"{line[4]}",
+                     "longitude": f"{line[5]}",
+                     "name": pollutant_name,
                      "concentration": line[6]} for line in lines]
         return data
 
@@ -99,7 +97,7 @@ class Hysplit(CommandLineSimulator):
                 "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
                 "%span%": "0.5 0.5",
-                "%dir%": f".{self.execution_params["%working_dir%"]}{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
                 "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"

@@ -1,8 +1,7 @@
-from driver import Driver
 import settings
-from repo.edb_repo import EdbRepo
-from test import hysplit_test
-from test.driver_test import driver_data_queries_test
+from driver import Driver
+from test import quality
+from test.hysplit_test import *
 
 
 def test_drive(sleep_seconds):
@@ -14,7 +13,8 @@ def test_drive(sleep_seconds):
 
 
 if __name__ == '__main__':
-    test_drive(settings.DRIVER_SLEEP_SECONDS)
+    quality.measure_quality("%sampling%", "sampling", "2023-09-14 04:44")
+    # test_drive(settings.DRIVER_SLEEP_SECONDS)
     # hysplit_test.coinciding_points_check()
 
     # hysplit_test.grid_test(False)  # full run

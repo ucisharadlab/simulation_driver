@@ -1,6 +1,7 @@
 import os
 import platform  # to get the current CPU platform (arm or x86); used for sleeping to avoid overheading.
 import time
+from _decimal import Decimal
 from datetime import datetime
 
 from repo.edb_repo import EdbRepo
@@ -128,7 +129,7 @@ def coinciding_points_check():
 def ground_truth():
     hysplit = Hysplit()
     default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
-    sampling = default_sampling[:-5] + "00 01"
+    sampling = default_sampling[:-5] + "01 00"
     parameter_dict = {"%output_grids%::%spacing%": f"0.001 0.001",
                       "%output_grids%::%sampling%": sampling}
     test("ground_truth", [(1, parameter_dict)], 1)
@@ -136,8 +137,8 @@ def ground_truth():
 
 def total_run_time_test(start=24, end=10*24, step=24, attempts=1):
     test_values = list()
-    for time in range(start, end + step, step):
-        test_values.append((str(time), {"%total_run_time%": str(time)}))
+    for run_time in range(start, end + step, step):
+        test_values.append((str(run_time), {"%total_run_time%": str(run_time)}))
     test("run_time", test_values, attempts)
 
 
@@ -181,7 +182,7 @@ def output_grid_spacing_test(start=0.1, end=3.0, step=0.1, attempts=1):
         "%dir%": "./",
         "%file%": "cdump",
         "%vertical_level%": "1\n50",
-        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 59",
+        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
     test_values = [(0.01, {"%output_grids%": [default_grid.copy()]})]
     for space in decimal_range(start, end + step, step):
@@ -236,9 +237,31 @@ def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
     return test("sampling", test_values, attempts)
 
 
+def coarse_value_for_sampling_test(value: Decimal, fine_points: [dict]) -> Decimal:
+    return value / len(fine_points)
+
+
 def slow_hysplit_run():
     parameter_dict = [(1, slow_params)]
     return test("slow_run", parameter_dict, 1)
+
+
+def get_output_files(test_name: str, test_time: datetime, base_path: str, attempts: int):
+    path = get_test_prefix(base_path, test_name, test_time)
+    outputs = list()
+    for attempt in range(0, attempts):
+        times_file_path = os.path.join(path, f"timings_{attempt}.txt")
+        with open(times_file_path, 'r') as times_file:
+            output_files = [(line.split('\t')[0], line.split('\t')[1][:-1],
+                             os.path.join(path, str(attempt),
+                                          "dump_" + line.split('\t')[0].replace('.', '-') + ".txt"))
+                            for line in times_file]
+            outputs.append(output_files)
+    return outputs
+
+
+def get_test_prefix(base_path: str, test_name: str, test_time: datetime) -> str:
+    return os.path.join(base_path, test_name, test_time.strftime("%Y-%m-%d_%H-%M"))
 
 
 def decimal_range(start, stop, increment):
