@@ -2,9 +2,9 @@ import statistics
 from _decimal import Decimal
 
 
-def get_error(coarse_value: Decimal, dataset: [Decimal], compute_coarse_value, error_type: str) -> Decimal:
-    value = compute_coarse_value(coarse_value, dataset)
-    return aggregate([value - d for d in dataset], error_type)
+def get_error(coarse_value: Decimal, dataset: [Decimal], interpolate) -> Decimal:
+    value = interpolate(coarse_value, dataset)
+    return aggregate([value - d for d in dataset], 'mae')
 
 
 def aggregate(dataset: [Decimal], error_type: str) -> Decimal:

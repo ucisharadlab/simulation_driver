@@ -59,16 +59,32 @@ class Hysplit(CommandLineSimulator):
 
     def get_results(self) -> [dict]:
         filename = self.get_parameter("%data_output%")
+        sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%")[0]["%sampling%"])
         with open(filename) as file:
             lines = csv.reader(file, delimiter=",")
-            line = next(lines)
-            pollutant_name = line[6]
-            lines = [[value.strip() for value in line] for line in lines]
-            data = [{"timestamp": f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00",
-                     "latitude": f"{line[4]}",
-                     "longitude": f"{line[5]}",
-                     "name": pollutant_name,
-                     "concentration": line[6]} for line in lines]
+            header = next(lines)
+            pollutant_name = header[6]
+            data = list()
+            previous_row = dict()
+            match_count = 0
+            for raw_line in lines:
+                line = [value.strip() for value in raw_line]
+                new_timestamp = line_timestamp = f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00"
+                row = {"timestamp": line_timestamp,
+                       "latitude": f"{line[4]}",
+                       "longitude": f"{line[5]}",
+                       "name": pollutant_name,
+                       "concentration": line[6]}
+                if len(previous_row) == 0 or not check_row_dimensions(previous_row, row):
+                    match_count = 0
+                elif sampling_rate < 60:
+                    match_count += 1
+                    new_timestamp = new_timestamp.replace(":00",
+                                                          f":{((match_count * sampling_rate) % 60):02}")
+                previous_row = row.copy()
+                if new_timestamp != line_timestamp:
+                    row["timestamp"] = new_timestamp
+                data.append(row)
         return data
 
     def add_count(self, key: str, count_key: str = None) -> None:
@@ -80,12 +96,13 @@ class Hysplit(CommandLineSimulator):
         # TODO: Make relative paths relative to repo root
         return {
             "%name%": "test",
-            "%start_locations%": ["34.12448, -118.40778"],  # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
+            "%start_locations%": ["34.12448, -118.40778"],
+            # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
             "%total_run_time%": "240",
             "%input_data_grids%": [{
-                    "%dir%": f"{settings.HYSPLIT_PATH}/working/",
-                    "%file%": "oct1618.BIN"
-                }
+                "%dir%": f"{settings.HYSPLIT_PATH}/working/",
+                "%file%": "oct1618.BIN"
+            }
             ],
             "%pollutants%": [{
                 "%id%": "AIR1",
@@ -112,3 +129,21 @@ class Hysplit(CommandLineSimulator):
             }],
             "%keys_with_count%": ["%start_locations%", "%input_data_grids%", "%output_grids%", "%pollutants%"]
         }
+
+
+def get_sampling_rate_mins(sampling: str) -> int:
+    sampling_param = sampling.split('\n')[-1]
+    days, hours, minutes = sampling_param.split(' ')
+    return 24 * 60 * int(days) + 60 * int(hours) + int(minutes)
+
+
+def check_row_dimensions(row1: dict, row2: dict) -> bool:
+    row1_dims = remove_metrics(row1)
+    row2_dims = remove_metrics(row2)
+    return row1_dims == row2_dims
+
+
+def remove_metrics(row: dict) -> dict:
+    row_dims = row.copy()
+    row_dims["concentration"] = ""
+    return row_dims

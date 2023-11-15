@@ -4,10 +4,9 @@ from util import reflection_util
 
 
 class Simulator:
-    def __init__(self, params: [str] = None):
-        self.params = params
+    def __init__(self, params: dict = None):
         self.execution_params = dict()
-        self.set_defaults()
+        self.set_defaults(params)
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
@@ -15,9 +14,6 @@ class Simulator:
     def set_defaults(self, execution_params: dict = None):
         self.set_parameters(self.get_defaults())
         self.set_parameters(execution_params)
-
-    def see_parameters(self) -> [str]:
-        return self.params
 
     def get_parameter(self, name: str):
         return self.execution_params[name]
@@ -33,7 +29,8 @@ class Simulator:
 
                 outer_key = key[:key.find("::")]
                 inner_key = key[key.find("::") + 2:]
-
+                if outer_key not in self.execution_params:
+                    self.execution_params[outer_key] = [dict()]
                 self.execution_params[outer_key][0][inner_key] = params[key]
                 continue
 

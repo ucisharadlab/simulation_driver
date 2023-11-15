@@ -55,9 +55,11 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
             params_index = run_id % len(param_values)
             attempt_params = param_values[params_index][1]
 
-            assert list(keys) == list(attempt_params.keys())  # Ensure keys (of hash map) are not in any way sorted differently.
+            assert list(keys) == list(
+                attempt_params.keys())  # Ensure keys (of hash map) are not in any way sorted differently.
             clean_values = [value.replace("\n", " ") for value in attempt_params.values()]
-            timings_file.writelines(f"{int(run_id / len(param_values))},{param_values[params_index][0]},{','.join(clean_values)},{duration}\n")
+            timings_file.writelines(
+                f"{int(run_id / len(param_values))},{param_values[params_index][0]},{','.join(clean_values)},{duration}\n")
 
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
@@ -74,7 +76,7 @@ def locations_test(start=1, end=9, step=1, attempts=1):
     test("start_locations", values, attempts)
 
 
-def grid_test(test_run = False):
+def grid_test(test_run=False):
     # For first initial runtime measurements, we vary the following parameters of Hysplit:
     #   - total_run_time (days of simulation)
     #   - output_grid.spacing[x, y] (the default values define a central point in LA and a rectangle surrounding it
@@ -90,7 +92,7 @@ def grid_test(test_run = False):
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
     var_limit_for_testing = 2 if test_run else None
 
-    hysplit = Hysplit("")
+    hysplit = Hysplit()
     default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
 
     parameter_values = list()
@@ -135,14 +137,14 @@ def ground_truth():
     test("ground_truth", [(1, parameter_dict)], 1)
 
 
-def total_run_time_test(start=24, end=10*24, step=24, attempts=1):
+def total_run_time_test(start=24, end=10 * 24, step=24, attempts=1):
     test_values = list()
     for run_time in range(start, end + step, step):
         test_values.append((str(run_time), {"%total_run_time%": str(run_time)}))
     test("run_time", test_values, attempts)
 
 
-def emission_duration_test(start=1, end=4*24, step=3, attempts=1):
+def emission_duration_test(start=1, end=4 * 24, step=3, attempts=1):
     test_values = list()
     for duration in range(start, end + 1, step):
         test_values.append((str(duration), {"%emission_duration_hours%": str(duration)}))
@@ -151,11 +153,11 @@ def emission_duration_test(start=1, end=4*24, step=3, attempts=1):
 
 def pollutants_test(start=0, end=4000, step=500, attempts=1):
     default_pollutant = {
-                "%id%": "0000",
-                "%emission_rate%": "50.0",
-                "%emission_duration_hours%": "10.0",
-                "%release_start%": "00 00 00 00 00"
-            }
+        "%id%": "0000",
+        "%emission_rate%": "50.0",
+        "%emission_duration_hours%": "10.0",
+        "%release_start%": "00 00 00 00 00"
+    }
     default_deposition = "0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"
     test_values = list()
     for count in range(start, end + 1, step):
@@ -218,14 +220,14 @@ def output_grid_span_test(start=0.0, lat_end=180.0, long_end=360.0, step=10, att
 def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
     param_key = "%output_grids%"
     default_grid = {
-                "%centre%": "35.727513, -118.786136",
-                "%spacing%": "0.1 0.1",
-                "%span%": "10.0 10.0",
-                "%dir%": "./",
-                "%file%": "cdump",
-                "%vertical_level%": "1\n50",
-                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
-            }
+        "%centre%": "35.727513, -118.786136",
+        "%spacing%": "0.1 0.1",
+        "%span%": "10.0 10.0",
+        "%dir%": "./",
+        "%file%": "cdump",
+        "%vertical_level%": "1\n50",
+        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
+    }
     test_values = list()  # [(0.01, {param_key: [default_grid.copy()]})]
     for rate in range(start, end + 1, step):
         input_rate = rate if rate > 0 else 1
@@ -246,29 +248,52 @@ def slow_hysplit_run():
     return test("slow_run", parameter_dict, 1)
 
 
-def get_output_files(test_name: str, test_time: datetime, base_path: str, attempts: int):
-    path = get_test_prefix(base_path, test_name, test_time)
-    outputs = list()
-    for attempt in range(0, attempts):
-        times_file_path = os.path.join(path, f"timings_{attempt}.txt")
-        with open(times_file_path, 'r') as times_file:
-            output_files = [(line.split('\t')[0], line.split('\t')[1][:-1],
-                             os.path.join(path, str(attempt),
-                                          "dump_" + line.split('\t')[0].replace('.', '-') + ".txt"))
-                            for line in times_file]
-            outputs.append(output_files)
-    return outputs
+def get_measures(test_name: str, test_time: str, base_path: str):
+    measurements_file = os.path.join(
+        get_test_prefix(base_path, test_name, get_date_path_suffix(test_time)),
+        "runtime_measurements.csv")
+    with (open(measurements_file, 'r') as measures_file):
+        attributes = measures_file.readline().strip('\n').replace("__", "::").split(",")
+        for line in measures_file:
+            values = line.strip('\n').split(',')
+            measure = dict()
+            for i in range(0, len(values)):
+                measure[attributes[i].lower()] = values[i]
+            yield measure
 
 
-def get_test_prefix(base_path: str, test_name: str, test_time: datetime) -> str:
-    return os.path.join(base_path, test_name, test_time.strftime("%Y-%m-%d_%H-%M"))
+measures_meta_attributes = {"attempt_id", "run_id", "duration_s"}
+
+
+def get_measures_meta_attributes() -> set:
+    return measures_meta_attributes
+
+
+def get_param(name: str, value: str) -> tuple:
+    return f"%{name}%", value
+
+
+interpolations = {
+    "sampling": lambda val, rows: Decimal(val / len(rows))
+}
+
+
+def interpolate(params: [str], value: Decimal, rows: [Decimal]) -> Decimal:
+    new_value = value
+    for key in interpolations:
+        if key in params:
+            new_value = interpolations[key](new_value, rows)
+    return new_value
+
+
+def get_test_prefix(base_path: str, test_name: str, test_time: str) -> str:
+    return os.path.join(base_path, test_name, test_time)
 
 
 def decimal_range(start, stop, increment):
     while start < stop:
         yield start
         start += increment
-# check input data grids, pollutants
 
 
 def set_outputs(hysplit: Hysplit, output_path: str, run_param: tuple) -> None:
@@ -280,8 +305,21 @@ def set_outputs(hysplit: Hysplit, output_path: str, run_param: tuple) -> None:
     hysplit.set_parameter("%output_grids%", output_grids)
 
 
-def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> tuple:
+def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (str, str):
     base_path = f"{directory}/{test_name}/{suffix}"
     output_path = f"{base_path}/{attempt}/dump"
     timings_path = f"{base_path}/timings_{attempt}.txt"
     return output_path, timings_path
+
+
+def get_quality_path(base_path: str, test_details: dict) -> str:
+    date_str = get_date_path_suffix(test_details["date"])
+    return os.path.join(base_path, test_details['name'], date_str, "measures.csv")
+
+
+def get_date(date_str: str) -> datetime:
+    return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+
+
+def get_date_path_suffix(date_str) -> str:
+    return get_date(date_str).strftime("%Y-%m-%d_%H-%M")

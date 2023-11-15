@@ -3,23 +3,24 @@
 import itertools
 import os.path
 from _decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from model.shape import Point, Box
+from simulator import hysplit
 from simulator.hysplit import Hysplit
+from test import hysplit_test
 from test.error_measures import get_error, aggregate
-from test.hysplit_test import get_output_files, get_test_prefix, coarse_value_for_sampling_test
+
+
+spacing_param_key = "%output_grids%::%spacing%"
+sampling_param_key = "%output_grids%::%sampling%"
 
 
 class HysplitResult:
     def __init__(self, path: str, parameters: dict = None):
-        self.parameters = {"%spacing%": "0.001 0.001",
-                           "%sampling%": "01 00",
-                           "%grid_center%": "35.727513, -118.786136",
-                           "%span%": "180.0 360.0"}
+        self.parameters = dict()
         if parameters is not None:
-            for key in parameters.keys():
-                self.parameters[key] = parameters[key]
+            self.parameters.update(parameters)
         self.path = path
         self.results = None
 
@@ -29,75 +30,75 @@ class HysplitResult:
     def fetch_results(self) -> [dict]:
         if self.results is not None:
             return self.results
-        hysplit = Hysplit()
+        hysplit = Hysplit(self.parameters)
         hysplit.set_parameter("%data_output%", self.path)
         self.results = hysplit.get_results()
         return self.results
 
 
-def measure_quality(param_name: str, test_name: str, test_time: str, constants: dict = None,
-                    base_path: str = "./debug/hysplit_out", attempts: int = 1):
-    if not constants:
-        constants = dict()
-    test_date = datetime.strptime(test_time, "%Y-%m-%d %H:%M")
-    base_config = HysplitResult(f"{base_path}/{test_name}/2023-09-14_04-44/0/dump_5.txt",
-                                {"%sampling%": "00 00 05"})
-    outputs = get_output_files(test_name, test_date, base_path, attempts)
-    for attempt in range(0, len(outputs)):
-        print(f"Attempt: {attempt}\n")
-        output_set = outputs[attempt]
-        measures_lines = ['param\ttime\tmae\tmse']
-        for param, time, file in output_set:
-            print(f"Starting: {param}\n")
-            param_value = param
-            if "%spacing%" == param_name:
-                param_value = f"{param} {param}"
-            elif "%sampling%" == param_name:
-                param_value = f"00 {int(param) / 60} {int(param) % 60}"
-            test_config = HysplitResult(file, {param_name: param_value})
-            for key in constants.keys():
-                test_config.set_parameter(key, constants[key])
+def measure_quality(test_details: dict, base_details: dict, base_path: str = "./debug/hysplit_out"):
+    base_config = get_result_config(base_path, base_details, base_details["run_id"])
+    measures_path = hysplit_test.get_quality_path(base_path, test_details)
 
-            errors = compare_quality(test_config, base_config, coarse_value_for_sampling_test)
-            mae = round(errors["total_mae"], 5)
-            mse = round(errors["total_mse"], 5)
-            measures_lines.append(f"{param}\t{time}\t{mae}\t{mse}")
-        measures_path = os.path.join(get_test_prefix(base_path, test_name, test_date), f"measures_{attempt}.tsv")
-        with open(measures_path, 'w') as measures_file:
-            measures_file.write("\n".join(measures_lines))
+    for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
+        print(f"Starting: {line['run_id']}\n")
+
+        test_config = get_result_config(base_path, test_details, line['run_id'])
+        test_params = list()
+        for key, value in line.items():
+            if key in hysplit_test.get_measures_meta_attributes():
+                continue
+            test_params.append(key)
+            param_name, param_value = hysplit_test.get_param(key, value)
+            test_config.set_parameter(param_name, param_value)
+        errors = compare_quality(test_config, base_config,
+                                 lambda v, r: hysplit_test.interpolate(test_params, v, r))
+
+        line.update({'mae': str(round(errors["total_mae"], 5)), 'mse': str(round(errors["total_mse"], 5))})
+        with open(measures_path, 'a+') as file:
+            file.write(",".join(line.values()) + "\n")
+
+
+def get_result_config(base_path: str, details: dict, file_suffix: str) -> HysplitResult:
+    file, _ = hysplit_test.get_output_paths(base_path, details['name'], 0,
+                                            hysplit_test.get_date_path_suffix(details["date"]))
+    file = file + f"_{file_suffix}.txt"
+    config = HysplitResult(file, details["params"] if "params" in details else dict())
+    return config
 
 
 def compare_quality(test_result: HysplitResult, ground_truth_result: HysplitResult,
-                    compute_coarse_value=lambda v, rows: v, error_types: [str] = None):
+                    interpolate, error_types: [str] = None):
     measure_types = error_types if error_types else ["mae", "mse"]
     test_result.fetch_results()
     ground_truth_result.fetch_results()
-    return compute_errors(test_result, ground_truth_result, compute_coarse_value, measure_types)
+    return compute_errors(test_result, ground_truth_result, interpolate, measure_types)
 
 
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
-                   compute_coarse_value, error_types: [str]) -> dict:
+                   interpolate, error_types: [str]) -> dict:
     dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
-    errors = dict()
+    error_measures = list()
+    row_count = 0
     for row in dataset_coarse.results:
+        row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])
                               for row in get_matching_data(row, dataset_coarse, dataset_fine)]
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
-        for error_type in error_types:
-            if error_type not in errors:
-                errors[error_type] = list()
-            errors[error_type].append(
-                get_error(Decimal(row["concentration"]), relevant_fine_data, compute_coarse_value, error_type))
+        error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, interpolate))
+        if row_count % 1000 == 0:
+            print(f"Completed row {row_count}")
+    errors = dict()
     for measure_type in error_types:
-        errors[f"total_{measure_type}"] = aggregate(errors[measure_type], measure_type)
+        errors[f"total_{measure_type}"] = aggregate(error_measures, measure_type)
     return errors
 
 
 def validate_datasets(dataset1, dataset2) -> tuple:
     # can also add span and center validation if needed
-    spacing1 = get_width(dataset1.parameters["%spacing%"])
-    spacing2 = get_width(dataset2.parameters["%spacing%"])
+    spacing1 = get_width(dataset1.parameters[spacing_param_key])
+    spacing2 = get_width(dataset2.parameters[spacing_param_key])
     dataset_fine, dataset_coarse = dataset1, dataset2
     if spacing1 > spacing2:
         dataset_fine, dataset_coarse = dataset2, dataset1
@@ -108,19 +109,31 @@ def validate_datasets(dataset1, dataset2) -> tuple:
 
 
 def get_matching_data(row: dict, dataset_coarse: HysplitResult, dataset_fine: HysplitResult) -> [dict]:
-    fine_spacing = get_width(dataset_fine.parameters["%spacing%"])
-    coarse_spacing = get_width(dataset_coarse.parameters["%spacing%"])
+    fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
+    coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
     grid_bounds = get_cell_bounds(row["latitude"], row["longitude"], coarse_spacing)
+    sampling_rate = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     relevant_data = list()
     for fine_row in dataset_fine.fetch_results():
-        row_bounds = get_cell_bounds(fine_row["latitude"], fine_row["longitude"], fine_spacing)
-        if row["timestamp"] == fine_row["timestamp"] and grid_bounds["box"].overlaps(row_bounds["box"]):
+        fine_row_bounds = get_cell_bounds(fine_row["latitude"], fine_row["longitude"], fine_spacing)
+        if (grid_bounds["box"].overlaps(fine_row_bounds["box"])
+                and is_within(get_time_range(row["timestamp"], sampling_rate), fine_row["timestamp"])):
             relevant_data.append(fine_row)
     return relevant_data
 
 
 def get_width(width: str) -> Decimal:
     return Decimal(round(Decimal(width.split(" ")[0]), 4))
+
+
+def get_time_range(time: str, increment_mins: int) -> (datetime, datetime):
+    low = hysplit_test.get_date(time)
+    high = low + timedelta(minutes=increment_mins)
+    return low, high
+
+
+def is_within(time_range: (datetime, datetime), timestamp: str) -> bool:
+    return time_range[0] <= hysplit_test.get_date(timestamp) < time_range[1]
 
 
 def get_cell_bounds(latitude: str, longitude: str, width: Decimal) -> dict:
