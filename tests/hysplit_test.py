@@ -6,7 +6,7 @@ from datetime import datetime
 
 from repo.edb_repo import EdbRepo
 from simulator.hysplit import Hysplit
-from test.test_data import slow_params
+from tests.test_data import slow_params
 
 
 def default_test():

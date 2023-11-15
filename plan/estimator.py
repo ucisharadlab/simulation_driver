@@ -13,7 +13,7 @@ class Estimator:
 
     # To learn estimation model
     # Inputs: processor instance to learn the model for
-    #         test data set to learn the model (optional)
+    #         tests data set to learn the model (optional)
     def learn(self, processor: Simulator, test_data: dict = None) -> None:
         raise NotImplementedError()
 

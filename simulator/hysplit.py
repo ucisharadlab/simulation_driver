@@ -95,7 +95,7 @@ class Hysplit(CommandLineSimulator):
     def get_defaults(self, params: dict = None) -> dict:
         # TODO: Make relative paths relative to repo root
         return {
-            "%name%": "test",
+            "%name%": "tests",
             "%start_locations%": ["34.12448, -118.40778"],
             # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
             "%total_run_time%": "240",

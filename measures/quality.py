@@ -1,15 +1,13 @@
 # need a way to distinguish between timestamp outputs -- assume chronological
 # how do we quantify quality gained by finer granularity?
-import itertools
-import os.path
 from _decimal import Decimal
 from datetime import datetime, timedelta
 
 from model.shape import Point, Box
 from simulator import hysplit
 from simulator.hysplit import Hysplit
-from test import hysplit_test
-from test.error_measures import get_error, aggregate
+from tests import hysplit_test
+from measures.error_measures import get_error, aggregate
 
 
 spacing_param_key = "%output_grids%::%spacing%"
