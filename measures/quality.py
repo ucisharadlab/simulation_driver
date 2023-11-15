@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from model.shape import Point, Box
 from simulator import hysplit
 from simulator.hysplit import Hysplit
-from tests import hysplit_test
+from test_helpers import hysplit_test
 from measures.error_measures import get_error, aggregate
 
 

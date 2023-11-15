@@ -1,6 +1,6 @@
 from driver import Driver
 from measures import quality
-from tests.hysplit_test import *
+from test_helpers.hysplit_test import *
 
 
 def test_drive(sleep_seconds):
