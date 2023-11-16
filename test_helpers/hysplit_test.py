@@ -1,12 +1,12 @@
-import os
 import platform  # to get the current CPU platform (arm or x86); used for sleeping to avoid overheading.
 import time
-from _decimal import Decimal
 from datetime import datetime
+from pathlib import Path
 
-from repo.edb_repo import EdbRepo
-from simulator.hysplit import Hysplit
+import util.util
+from simulator.hysplit import Hysplit, get_date_path_suffix
 from test_helpers.test_data import slow_params
+from util.util import RangeUtil
 
 
 def default_test():
@@ -20,47 +20,24 @@ def default_test():
 
 def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
     attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
-    durations = list()
     for attempt in range(0, attempts):
-        output_path, timings_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
+        output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
         hysplit = Hysplit()
-        os.makedirs(os.path.split(output_path)[0], exist_ok=True)
         total_count = len(param_values)
-        duration_strings = list()
-        for index, param in enumerate(param_values):
-            set_outputs(hysplit, output_path, param)
-            print(f"Running: {index + 1}, Total: {total_count} | {test_name}: {param[0]}")
-            start = datetime.now()
-            hysplit.run(param[1])
-            duration_s = (datetime.now() - start).total_seconds()
-            print(f"Duration: {duration_s} s")
-            durations.append(duration_s)
-            duration_strings.append(str(param[0]) + "\t" + str(duration_s) + "\n")
-            if platform.processor() != "arm" and platform.system() != "Linux":
-                # Sleep when not on arm to avoid overheating. Also, when running on Linux we assume to run on a
-                # sufficiently cooled server machine.
-                time.sleep(5)
 
-        with open(timings_path, "w") as timings_file:
-            timings_file.writelines(duration_strings)
-
-    _, results_path = get_output_paths(output_dir, test_name, 0, attempt_time_suffix)
-    with open(results_path.replace("timings_0.txt", "runtime_measurements.csv"), "w") as timings_file:
-        keys = param_values[0][1].keys()
-        clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in keys]
-        timings_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
-
-        assert len(durations) == attempts * len(param_values)
-        for run_id, duration in enumerate(durations):
-            params_index = run_id % len(param_values)
-            attempt_params = param_values[params_index][1]
-
-            assert list(keys) == list(
-                attempt_params.keys())  # Ensure keys (of hash map) are not in any way sorted differently.
-            clean_values = [value.replace("\n", " ") for value in attempt_params.values()]
-            timings_file.writelines(
-                f"{int(run_id / len(param_values))},{param_values[params_index][0]},{','.join(clean_values)},{duration}\n")
-
+        with open(measures_path, "w") as measures_file:
+            clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+            measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
+            for run_id, params in param_values:
+                set_outputs(hysplit, output_path, run_id, params)
+                print(f"{test_name} | Running: {run_id}, Total: {total_count}")
+                start = datetime.now()
+                hysplit.run(params)
+                duration_s = (datetime.now() - start).total_seconds()
+                print(f"Duration: {duration_s} s")
+                clean_values = [value.replace("\n", " ") for value in params.values()]
+                measures_file.writelines(f"{attempt},{param_values[run_id][0]},{','.join(clean_values)},{duration_s}\n")
+                sleep()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 
@@ -113,7 +90,7 @@ def grid_test(test_run=False):
 
 def coinciding_points_check():
     parameter_values = list()
-    sampling_prefix = Hysplit("").get_defaults()["%output_grids%"][0]["%sampling%"][:-5]
+    sampling_prefix = Hysplit().get_defaults()["%output_grids%"][0]["%sampling%"][:-5]
     parameter_dict = {"%%": f"",
                       "%output_grids%::%spacing%": f"0.05 0.05",
                       "%output_grids%::%sampling%": sampling_prefix + "01 00"}
@@ -187,7 +164,7 @@ def output_grid_spacing_test(start=0.1, end=3.0, step=0.1, attempts=1):
         "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
     test_values = [(0.01, {"%output_grids%": [default_grid.copy()]})]
-    for space in decimal_range(start, end + step, step):
+    for space in util.util.RangeUtil.decimal_range(start, end + step, step):
         input_space = space if space > 0 else 0.001
         default_grid["%spacing%"] = f"{input_space} {input_space}"
         test_values.append((space, {"%output_grids%": [default_grid.copy()]}))
@@ -206,12 +183,12 @@ def output_grid_span_test(start=0.0, lat_end=180.0, long_end=360.0, step=10, att
     }
 
     test_values = list()
-    for span in decimal_range(start, lat_end + step, step):
+    for span in RangeUtil.decimal_range(start, lat_end + step, step):
         input_span = span if span > 0 else 1.0
         default_grid["%span%"] = f"{input_span} {input_span}"
         test_values.append((input_span, {"%output_grids%": [default_grid.copy()]}))
 
-    for long_span in decimal_range(lat_end, long_end + step, step * 2):
+    for long_span in RangeUtil.decimal_range(lat_end, long_end + step, step * 2):
         default_grid["%span%"] = f"{lat_end} {long_span}"
         test_values.append((long_span, {"%output_grids%": [default_grid.copy()]}))
     return test("span", test_values, attempts)
@@ -239,19 +216,15 @@ def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
     return test("sampling", test_values, attempts)
 
 
-def coarse_value_for_sampling_test(value: Decimal, fine_points: [dict]) -> Decimal:
-    return value / len(fine_points)
-
-
 def slow_hysplit_run():
     parameter_dict = [(1, slow_params)]
     return test("slow_run", parameter_dict, 1)
 
 
 def get_measures(test_name: str, test_time: str, base_path: str):
-    measurements_file = os.path.join(
-        get_test_prefix(base_path, test_name, get_date_path_suffix(test_time)),
-        "runtime_measurements.csv")
+    measurements_file = (get_test_prefix(base_path, test_name,
+                                         get_date_path_suffix(test_time)) /
+                         "runtime_measurements.csv")
     with (open(measurements_file, 'r') as measures_file):
         attributes = measures_file.readline().strip('\n').replace("__", "::").split(",")
         for line in measures_file:
@@ -269,57 +242,33 @@ def get_measures_meta_attributes() -> set:
     return measures_meta_attributes
 
 
-def get_param(name: str, value: str) -> tuple:
-    return f"%{name}%", value
+def get_test_prefix(base_path: str, test_name: str, test_time: str) -> Path:
+    return Path(base_path) / test_name / test_time
 
 
-interpolations = {
-    "sampling": lambda val, rows: Decimal(val / len(rows))
-}
-
-
-def interpolate(params: [str], value: Decimal, rows: [Decimal]) -> Decimal:
-    new_value = value
-    for key in interpolations:
-        if key in params:
-            new_value = interpolations[key](new_value, rows)
-    return new_value
-
-
-def get_test_prefix(base_path: str, test_name: str, test_time: str) -> str:
-    return os.path.join(base_path, test_name, test_time)
-
-
-def decimal_range(start, stop, increment):
-    while start < stop:
-        yield start
-        start += increment
-
-
-def set_outputs(hysplit: Hysplit, output_path: str, run_param: tuple) -> None:
-    output_dir, output_file = os.path.split(output_path)
-    output_grids = hysplit.get_parameter("%output_grids%") if "%output_grids%" not in run_param[1].keys() \
-        else run_param[1]["%output_grids%"]
-    output_grids[0]["%dir%"] = output_dir + "/"
-    output_grids[0]["%file%"] = f"{output_file}_{str(run_param[0]).replace('.', '-')}"
+def set_outputs(hysplit: Hysplit, output_path: Path, run_id: int, run_params: dict) -> None:
+    output_grids = hysplit.get_parameter("%output_grids%") if "%output_grids%" not in run_params.keys() \
+        else run_params["%output_grids%"]
+    output_grids[0]["%dir%"] = str(output_path.parent) + "/"
+    output_grids[0]["%file%"] = f"{output_path.stem}_{str(run_id).replace('.', '-')}"
     hysplit.set_parameter("%output_grids%", output_grids)
 
 
-def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (str, str):
-    base_path = f"{directory}/{test_name}/{suffix}"
-    output_path = f"{base_path}/{attempt}/dump"
-    timings_path = f"{base_path}/timings_{attempt}.txt"
-    return output_path, timings_path
+def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (Path, Path):
+    base_path = Path(f"{directory}/{test_name}/{suffix}")
+    output_path = base_path / str(attempt) / "dump"
+    measures_path = base_path / f"runtime_measurements_{attempt}.csv"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return output_path, measures_path
 
 
-def get_quality_path(base_path: str, test_details: dict) -> str:
+def get_quality_path(base_path: str, test_details: dict) -> Path:
     date_str = get_date_path_suffix(test_details["date"])
-    return os.path.join(base_path, test_details['name'], date_str, "measures.csv")
+    return Path(base_path) / test_details['name'] / date_str / "measures.csv"
 
 
-def get_date(date_str: str) -> datetime:
-    return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-
-
-def get_date_path_suffix(date_str) -> str:
-    return get_date(date_str).strftime("%Y-%m-%d_%H-%M")
+def sleep():
+    if platform.processor() != "arm" and platform.system() != "Linux":
+        # Sleep when not on arm to avoid overheating. Also, when running on Linux we assume to run on a
+        # sufficiently cooled server machine.
+        time.sleep(5)

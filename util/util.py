@@ -54,3 +54,11 @@ class StringUtil:
         if type(next(iter(items), None)) is not dict:
             return separator.join(items)
         return separator.join([separator.join(item.values()) for item in items])
+
+
+class RangeUtil:
+    @staticmethod
+    def decimal_range(start, stop, increment):
+        while start < stop:
+            yield start
+            start += increment

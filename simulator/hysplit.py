@@ -1,7 +1,7 @@
 import csv
-import os
 import shutil
 import threading
+from pathlib import Path
 
 import settings
 
@@ -26,8 +26,8 @@ class Hysplit(CommandLineSimulator):
             self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
 
     def generate_input(self):
-        template_file = os.path.join(self.get_parameter("%control_file%")[0]["%template_path%"],
-                                     self.get_parameter("%control_file%")[0]["%template_file%"])
+        template_file = (Path(self.get_parameter("%control_file%")[0]["%template_path%"]) /
+                         self.get_parameter("%control_file%")[0]["%template_file%"])
         FileUtil.generate_file(template_file,
                                self.get_parameter("%control_file%")[0]["%name%"],
                                self.get_parameter("%control_file%")[0]["%path%"],
@@ -40,17 +40,17 @@ class Hysplit(CommandLineSimulator):
             self.execution_params, self.execution_params["%output_grids%"][0]["%file%"])
 
         output_grids = self.get_parameter("%output_grids%")
-        output_dir = output_grids[0]['%dir%']
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = Path(output_grids[0]['%dir%'])
+        output_dir.mkdir(parents=True)
         self.generate_input()
         dump_files = list()
         for grid in output_grids:
-            dump_files.append(os.path.join(grid['%dir%'], grid['%file%']))
+            dump_files.append(Path(grid['%dir%']) / grid['%file%'])
         time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        dump_file_name = os.path.join(output_dir, f"dump_files_{time_suffix}.txt")
+        dump_file_name = output_dir / f"dump_files_{time_suffix}.txt"
         with open(dump_file_name, 'w') as dump_file:
             dump_file.writelines(dump_files)
-        output_file = os.path.join(output_dir, f"data_dump_{time_suffix}")
+        output_file = output_dir / f"data_dump_{time_suffix}"
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
         command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
                    f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
@@ -60,6 +60,8 @@ class Hysplit(CommandLineSimulator):
     def get_results(self) -> [dict]:
         filename = self.get_parameter("%data_output%")
         sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%")[0]["%sampling%"])
+        if Path(filename).stat().st_size == 0:
+            return list()
         with open(filename) as file:
             lines = csv.reader(file, delimiter=",")
             header = next(lines)
@@ -147,3 +149,15 @@ def remove_metrics(row: dict) -> dict:
     row_dims = row.copy()
     row_dims["concentration"] = ""
     return row_dims
+
+
+def get_date(date_str: str) -> datetime:
+    return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+
+
+def get_date_path_suffix(date_str) -> str:
+    return get_date(date_str).strftime("%Y-%m-%d_%H-%M")
+
+
+def get_param(name: str, value: str) -> tuple:
+    return f"%{name}%", value
