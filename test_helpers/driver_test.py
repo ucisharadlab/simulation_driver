@@ -1,7 +1,7 @@
 import settings
 from driver import Driver
 from repo.edb_repo import EdbRepo, prepare_test_data_row
-from test.test_data import *
+from test_helpers.test_data import *
 
 
 def driver_data_queries_test():

@@ -1,10 +1,11 @@
 import os
+from pathlib import Path
 
 
 class FileUtil:
     @staticmethod
-    def generate_file(template_file: str, name_template: str, output_path: str, settings: dict):
-        with open(f"{template_file}", 'r') as template:
+    def generate_file(template_file: Path, name_template: str, output_path: str, settings: dict):
+        with open(template_file, 'r') as template:
             file_content = template.read()
 
         file_content = StringUtil.macro_replace(settings, file_content)
@@ -54,3 +55,11 @@ class StringUtil:
         if type(next(iter(items), None)) is not dict:
             return separator.join(items)
         return separator.join([separator.join(item.values()) for item in items])
+
+
+class RangeUtil:
+    @staticmethod
+    def decimal_range(start, stop, increment):
+        while start < stop:
+            yield start
+            start += increment

@@ -47,7 +47,8 @@ class EdbRepo(SqlRepo):
     def get_query_load(self) -> [dict]:
         rows = self.fetch_entities(
             "SELECT id, query, start_time FROM query_workload WHERE status = 0")  # TODO: change query
-        return [] if not rows else [dict_from_tuple(["id", "query", "start_time"], row) for row in rows]
+        return [] if not rows \
+            else [dict_from_tuple(["id", "query", "start_time"], row) for row in rows]
 
     def log(self, simulator: str, execution_info: dict):
         self.execute(f"INSERT INTO simulation_log (simulator, execution_info, timestamp) VALUES "
@@ -58,7 +59,8 @@ class EdbRepo(SqlRepo):
         return [dict_from_tuple(["simulator", "params"], row) for row in rows]
 
     def complete_queries(self, query_ids: list):
-        if len(query_ids) < 1: return
+        if len(query_ids) < 1:
+            return
         ids = [str(query_id) for query_id in query_ids]
         self.execute(f"UPDATE query_workload SET status = 1 WHERE id IN ({','.join(ids)})")
 
