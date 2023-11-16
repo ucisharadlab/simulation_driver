@@ -1,4 +1,5 @@
 import csv
+import os
 import shutil
 import threading
 from pathlib import Path
@@ -8,44 +9,47 @@ import settings
 from decimal import *
 from datetime import datetime
 
-from simulator.simulator import CommandLineSimulator
+from simulator.simulator import CommandLineSimulator, base_dir_macro
 from util.util import FileUtil, StringUtil
 
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        # working_dir = f"./debug/hysplit_out/{threading.get_ident()}/"
-        # self.execution_params["%working_dir%"] = working_dir
-        # os.makedirs(working_dir, exist_ok=True)
-        # shutil.copyfile("./ASCDATA.CFG", f"{working_dir}ASCDATA.CFG")
-        # os.chdir(working_dir)
+        working_path = self.get_absolute_path(f"./debug/hysplit_out/{threading.current_thread().name}/")
+        self.set_parameter("%working_dir%", str(working_path))
+        working_path.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
+        output_dir = self.get_parameter("%output_grids%::%dir%")
+        self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir))
+        os.chdir(working_path)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
                 continue
             old_value = self.execution_params[param]
             self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
 
+    def postprocess(self) -> None:
+        os.chdir(self.execution_params[base_dir_macro])
+
     def generate_input(self):
-        template_file = (Path(self.get_parameter("%control_file%")[0]["%template_path%"]) /
-                         self.get_parameter("%control_file%")[0]["%template_file%"])
-        FileUtil.generate_file(template_file,
-                               self.get_parameter("%control_file%")[0]["%name%"],
-                               self.get_parameter("%control_file%")[0]["%path%"],
-                               self.execution_params)
+        control_params = self.get_parameter("%control_file%")[0]
+        template_file = (self.get_absolute_path(control_params["%template_path%"])
+                         / control_params["%template_file%"])
+        FileUtil.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
     def prepare_command(self) -> str:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
-        self.execution_params["%output_grids%"][0]["%file%"] = StringUtil.macro_replace(
-            self.execution_params, self.execution_params["%output_grids%"][0]["%file%"])
+        self.set_parameter("%output_grids%::%file%", StringUtil.macro_replace(
+            self.execution_params, self.execution_params["%output_grids%"][0]["%file%"]))
 
         output_grids = self.get_parameter("%output_grids%")
-        output_dir = Path(output_grids[0]['%dir%'])
+        output_dir = self.get_absolute_path(output_grids[0]['%dir%'])
         output_dir.mkdir(parents=True, exist_ok=True)
         self.generate_input()
         dump_files = list()
         for grid in output_grids:
-            dump_files.append(str(Path(grid['%dir%']) / grid['%file%']) + "\n")
+            dump_files.append(str(self.get_absolute_path(grid['%dir%']) / grid['%file%']) + "\n")
         time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         dump_file_name = output_dir / f"dump_files_{time_suffix}.txt"
         with open(dump_file_name, 'w') as dump_file:
@@ -60,7 +64,7 @@ class Hysplit(CommandLineSimulator):
 
     def get_results(self) -> [dict]:
         filename = self.get_parameter("%data_output%")
-        sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%")[0]["%sampling%"])
+        sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%::%sampling%"))
         if Path(filename).stat().st_size == 0:
             return list()
         with open(filename) as file:
@@ -105,8 +109,7 @@ class Hysplit(CommandLineSimulator):
             "%input_data_grids%": [{
                 "%dir%": f"{settings.HYSPLIT_PATH}/working/",
                 "%file%": "oct1618.BIN"
-            }
-            ],
+            }],
             "%pollutants%": [{
                 "%id%": "AIR1",
                 "%emission_rate%": "50.0",

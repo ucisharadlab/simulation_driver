@@ -1,10 +1,11 @@
 import os
+from pathlib import Path
 
 
 class FileUtil:
     @staticmethod
-    def generate_file(template_file: str, name_template: str, output_path: str, settings: dict):
-        with open(f"{template_file}", 'r') as template:
+    def generate_file(template_file: Path, name_template: str, output_path: str, settings: dict):
+        with open(template_file, 'r') as template:
             file_content = template.read()
 
         file_content = StringUtil.macro_replace(settings, file_content)

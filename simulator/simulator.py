@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from util import reflection_util
 
@@ -12,29 +13,34 @@ class Simulator:
         pass
 
     def set_defaults(self, execution_params: dict = None):
+        self.set_parameter(base_dir_macro, str(Path().resolve()))
         self.set_parameters(self.get_defaults())
         self.set_parameters(execution_params)
 
     def get_parameter(self, name: str):
-        return self.execution_params[name]
+        if "::" not in name:
+            return self.execution_params[name]
+        outer_key, inner_key = get_split_keys(name)
+        if (outer_key not in self.execution_params
+                or len(self.execution_params[outer_key]) == 0
+                or inner_key not in self.execution_params[outer_key][0]):
+            return None
+        return self.execution_params[outer_key][0][inner_key]
 
     def set_parameter(self, name: str, value) -> None:
-        self.execution_params[name] = value
+        if "::" not in name:
+            self.execution_params[name] = value
+            return
+        outer_key, inner_key = get_split_keys(name)
+        if outer_key not in self.execution_params:
+            self.execution_params[outer_key] = [dict()]
+        self.execution_params[outer_key][0][inner_key] = value
 
     def set_parameters(self, params: dict) -> None:
-        if params is None or len(params) < 1: return
+        if params is None or len(params) < 1:
+            return
         for key in params.keys():
-            if "::" in key:
-                assert key.count("::") == 1
-
-                outer_key = key[:key.find("::")]
-                inner_key = key[key.find("::") + 2:]
-                if outer_key not in self.execution_params:
-                    self.execution_params[outer_key] = [dict()]
-                self.execution_params[outer_key][0][inner_key] = params[key]
-                continue
-
-            self.execution_params[key] = params[key]
+            self.set_parameter(key, params[key])
 
     def preprocess(self) -> None:
         pass
@@ -57,6 +63,9 @@ class Simulator:
 
     def get_results(self) -> [dict]:
         raise NotImplementedError()
+
+    def get_absolute_path(self, relative_path: str):
+        return Path(self.execution_params[base_dir_macro]) / relative_path
 
 
 class CommandLineSimulator(Simulator):
@@ -85,3 +94,13 @@ class NoopSimulator(CommandLineSimulator):
 
 def get_simulator(full_class_name: str) -> Simulator:
     return reflection_util.get_instance(full_class_name)
+
+
+def get_split_keys(composite_key: str) -> (str, str):
+    assert composite_key.count("::") == 1
+    outer_key = composite_key[:composite_key.find("::")]
+    inner_key = composite_key[composite_key.find("::") + 2:]
+    return outer_key, inner_key
+
+
+base_dir_macro = "%base_working_dir%"

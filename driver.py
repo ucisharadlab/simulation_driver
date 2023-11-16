@@ -9,10 +9,10 @@ from simulator.simulator import get_simulator
 
 
 class Driver:
-    def __init__(self, simulator_repo, sleep_seconds: int = 0):
+    def __init__(self, simulator_repo: EdbRepo, sleep_seconds: int = 0):
         self.repo = simulator_repo
         self.planners = dict()
-        self.threads = list()
+        self.runtimes = list()
         self.sleep_seconds = sleep_seconds
 
     def run(self):
@@ -41,26 +41,37 @@ class Driver:
             simulator_name = simulator_details["name"]
             plan = self.planners[simulator_name].get_plan(self.repo.get_log(simulator_name), parsed_query)
             for params, cost in plan:
-                thread = threading.Thread(target=self.run_simulation,
-                                          args=(parsed_query, simulator_details["class_name"], json.loads(params, strict=False)))
-                self.threads.append(thread)
-                thread.handled = False
-                thread.start()
+                self.execute_runtime(parsed_query, simulator_details["class_name"], params)
 
-            for thread in self.threads:
-                thread.join()
+            # TODO: Join is here only because thread.is_alive() doesn't seem to work
+            for runtime in self.runtimes:
+                runtime.join()
 
     def check_simulation_statuses(self) -> int:
-        print(f"Running threads: {len(self.threads)}")
-        for t in self.threads:
-            if not t.is_alive():
-                t.handled = True
-        self.threads = [t for t in self.threads if not t.handled]
-        return len(self.threads)
+        print(f"Running threads: {len(self.runtimes)}")
+        completed_ids = list()
+        for runtime in self.runtimes:
+            if runtime.is_alive():
+                continue
+            runtime.handled = True
+            completed_ids.append(runtime.query_id)
 
-    def run_simulation(self, query: dict, simulator_name: str, params: dict):
+        self.runtimes = [r for r in self.runtimes if not r.handled]
+        self.repo.complete_queries(completed_ids)
+        return len(self.runtimes)
+
+    def execute_runtime(self, query: dict, simulator_class: str, params: str):
+        runtime = threading.Thread(target=self.run_simulation,
+                                   args=(query, simulator_class, params))
+        self.runtimes.append(runtime)
+        runtime.handled = False
+        runtime.name = f"runtime-{len(self.runtimes)}"
+        runtime.query_id = query['id']
+        runtime.start()
+
+    def run_simulation(self, query: dict, simulator_name: str, params: str):
         execution_info = dict()
-        execution_info["params"] = params
+        execution_info["params"] = json.loads(params, strict=False)
         simulator = get_simulator(simulator_name)
 
         print("Running simulation")
