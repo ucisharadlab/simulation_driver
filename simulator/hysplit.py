@@ -41,20 +41,21 @@ class Hysplit(CommandLineSimulator):
 
         output_grids = self.get_parameter("%output_grids%")
         output_dir = Path(output_grids[0]['%dir%'])
-        output_dir.mkdir(parents=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         self.generate_input()
         dump_files = list()
         for grid in output_grids:
-            dump_files.append(Path(grid['%dir%']) / grid['%file%'])
+            dump_files.append(str(Path(grid['%dir%']) / grid['%file%']) + "\n")
         time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         dump_file_name = output_dir / f"dump_files_{time_suffix}.txt"
         with open(dump_file_name, 'w') as dump_file:
             dump_file.writelines(dump_files)
-        output_file = output_dir / f"data_dump_{time_suffix}"
+        file_suffix = output_grids[0]["%file%"]
+        output_file = output_dir / f"data_{file_suffix}"
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
         command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
                    f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
-                   f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{dump_files[0]} -s -u1.0E+9 -d && echo 'Done conversion' ")
+                   f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' ")
         return command
 
     def get_results(self) -> [dict]:

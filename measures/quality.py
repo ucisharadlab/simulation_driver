@@ -1,5 +1,6 @@
 from _decimal import Decimal
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from model.shape import Point, Box
 from simulator import hysplit
@@ -13,7 +14,7 @@ sampling_param_key = "%output_grids%::%sampling%"
 
 
 class HysplitResult:
-    def __init__(self, path: str, parameters: dict = None):
+    def __init__(self, path: Path, parameters: dict = None):
         self.parameters = dict()
         if parameters is not None:
             self.parameters.update(parameters)
@@ -27,7 +28,7 @@ class HysplitResult:
         if self.results is not None:
             return self.results
         simulator = Hysplit(self.parameters)
-        simulator.set_parameter("%data_output%", self.path)
+        simulator.set_parameter("%data_output%", str(self.path))
         self.results = simulator.get_results()
         return self.results
 
@@ -55,10 +56,10 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
             file.write(",".join(line.values()) + "\n")
 
 
-def get_result_config(base_path: str, details: dict, file_suffix: str) -> HysplitResult:
+def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
     file, _ = hysplit_test.get_output_paths(base_path, details['name'], 0,
                                             hysplit_test.get_date_path_suffix(details["date"]))
-    file = file + f"_{file_suffix}.txt"
+    file = file.parent / f"data_{file.stem}_{run_id}.txt"
     config = HysplitResult(file, details["params"] if "params" in details else dict())
     return config
 

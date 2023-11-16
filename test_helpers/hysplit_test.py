@@ -27,7 +27,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
 
         with open(measures_path, "w") as measures_file:
             clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
-            measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
+            measures_file.writelines(f"ATTEMPT_ID,RUN_ID{','.join(clean_keys)},DURATION_S\n")
             for run_id, params in param_values:
                 set_outputs(hysplit, output_path, run_id, params)
                 print(f"{test_name} | Running: {run_id}, Total: {total_count}")
@@ -36,7 +36,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
                 duration_s = (datetime.now() - start).total_seconds()
                 print(f"Duration: {duration_s} s")
                 clean_values = [value.replace("\n", " ") for value in params.values()]
-                measures_file.writelines(f"{attempt},{param_values[run_id][0]},{','.join(clean_values)},{duration_s}\n")
+                measures_file.writelines(f"{attempt},{run_id}{','.join(clean_values)},{duration_s}\n")
                 sleep()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 

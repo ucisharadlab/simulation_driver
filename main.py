@@ -1,5 +1,6 @@
 from driver import Driver
 from measures import quality
+from repo.edb_repo import EdbRepo
 from test_helpers.hysplit_test import *
 
 
@@ -22,9 +23,9 @@ def quality_check():
 
 
 if __name__ == '__main__':
-    quality_check()
+    # quality_check()
     # test_drive(settings.DRIVER_SLEEP_SECONDS)
-    # hysplit_test.coinciding_points_check()
+    coinciding_points_check()
 
     # hysplit_test.grid_test(False)  # full run
     # hysplit_test.grid_test(True)  # fast run
