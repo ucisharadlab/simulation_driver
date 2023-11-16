@@ -1,3 +1,4 @@
+import settings
 from driver import Driver
 from measures import quality
 from repo.edb_repo import EdbRepo
@@ -23,9 +24,9 @@ def quality_check():
 
 
 if __name__ == '__main__':
+    test_drive(settings.DRIVER_SLEEP_SECONDS)
     # quality_check()
-    # test_drive(settings.DRIVER_SLEEP_SECONDS)
-    coinciding_points_check()
+    # coinciding_points_check()
 
     # hysplit_test.grid_test(False)  # full run
     # hysplit_test.grid_test(True)  # fast run
