@@ -41,7 +41,8 @@ class EdbRepo(SqlRepo):
     def store_result(self, data_type: str, rows: [dict]):
         for row in rows:
             self.execute(f"INSERT INTO {data_type}_data (timestamp, location, name, concentration) VALUES "
-                         f"(to_timestamp('{row['timestamp']}', 'YYYY-MM-DD HH24:MI')::timestamp, "
+                         f"(to_timestamp('{row['timestamp'].strftime('%Y-%m-%d %H:%M')}', "
+                         f"'YYYY-MM-DD HH24:MI')::timestamp, "
                          f"'{row['location']}', '{row['name']}', '{row['concentration']}')")
 
     def get_query_load(self) -> [dict]:

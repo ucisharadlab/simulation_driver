@@ -77,8 +77,7 @@ class Hysplit(CommandLineSimulator):
             for raw_line in lines:
                 line = [value.strip() for value in raw_line]
                 new_timestamp = line_timestamp = f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00"
-                row = {"timestamp": line_timestamp,
-                       "latitude": f"{line[4]}",
+                row = {"latitude": f"{line[4]}",
                        "longitude": f"{line[5]}",
                        "name": pollutant_name,
                        "concentration": line[6]}
@@ -89,8 +88,7 @@ class Hysplit(CommandLineSimulator):
                     new_timestamp = new_timestamp.replace(":00",
                                                           f":{((match_count * sampling_rate) % 60):02}")
                 previous_row = row.copy()
-                if new_timestamp != line_timestamp:
-                    row["timestamp"] = new_timestamp
+                row["timestamp"] = get_time(new_timestamp if new_timestamp != line_timestamp else line_timestamp)
                 data.append(row)
         return data
 
@@ -155,12 +153,12 @@ def remove_metrics(row: dict) -> dict:
     return row_dims
 
 
-def get_date(date_str: str) -> datetime:
+def get_time(date_str: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
 
 
 def get_date_path_suffix(date_str) -> str:
-    return get_date(date_str).strftime("%Y-%m-%d_%H-%M")
+    return get_time(date_str).strftime("%Y-%m-%d_%H-%M")
 
 
 def get_param(name: str, value: str) -> tuple:

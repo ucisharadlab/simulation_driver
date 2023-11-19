@@ -2,7 +2,6 @@ from _decimal import Decimal
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from model.shape import Point, Box
 from simulator import hysplit
 from simulator.hysplit import Hysplit
 from test_helpers import hysplit_test
@@ -35,7 +34,7 @@ class HysplitResult:
 
 def measure_quality(test_details: dict, base_details: dict, base_path: str = "./debug/hysplit_out"):
     base_config = get_result_config(base_path, base_details, base_details["run_id"])
-    measures_path = hysplit_test.get_quality_path(base_path, test_details)
+    measures_path = hysplit_test.get_quality_path(base_path, test_details).resolve()
 
     with measures_path.open('a+') as file:
         for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
@@ -54,12 +53,13 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
 
             line.update({'mae': str(round(errors["total_mae"], 5)), 'mse': str(round(errors["total_mse"], 5))})
             file.write(",".join(line.values()) + "\n")
+    print(f"Written to: {measures_path}")
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
     file, _ = hysplit_test.get_output_paths(base_path, details['name'], 0,
                                             hysplit_test.get_date_path_suffix(details["date"]))
-    file = file.parent / f"data_{file.stem}_{run_id}.txt"
+    file = file.parent / f"{file.stem}_{run_id}.txt"
     config = HysplitResult(file, details["params"] if "params" in details else dict())
     return config
 
@@ -78,14 +78,14 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.results:
+        if row_count % 1000 == 0:
+            print(f"Starting row {row_count} at time: {datetime.now()}")
         row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])
                               for row in get_matching_data(row, dataset_coarse, dataset_fine)]
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
         error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, get_value))
-        if row_count % 1000 == 0:
-            print(f"Completed row {row_count}")
     errors = dict()
     for measure_type in error_types:
         errors[f"total_{measure_type}"] = aggregate(error_measures, measure_type)
@@ -108,14 +108,18 @@ def validate_datasets(dataset1, dataset2) -> tuple:
 def get_matching_data(row: dict, dataset_coarse: HysplitResult, dataset_fine: HysplitResult) -> [dict]:
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
     coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
-    grid_bounds = get_cell_bounds(row["latitude"], row["longitude"], coarse_spacing)
+    row_latitude, row_longitude = Decimal(row["latitude"]), Decimal(row["longitude"])
+    latitude_bounds = get_space_bounds(row_latitude, (coarse_spacing + fine_spacing) / 2)
+    longitude_bounds = get_space_bounds(row_longitude, (coarse_spacing + fine_spacing) / 2)
     sampling_rate = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     relevant_data = list()
     for fine_row in dataset_fine.fetch_results():
-        fine_row_bounds = get_cell_bounds(fine_row["latitude"], fine_row["longitude"], fine_spacing)
-        if (grid_bounds["box"].overlaps(fine_row_bounds["box"])
-                and is_within(get_time_range(row["timestamp"], sampling_rate), fine_row["timestamp"])):
-            relevant_data.append(fine_row)
+        time_diff_sec = (fine_row["timestamp"] - row["timestamp"]).total_seconds()
+        if (time_diff_sec < 0 or time_diff_sec / 60 > sampling_rate
+                or not check_bounds(Decimal(fine_row["latitude"]), latitude_bounds)
+                or not check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
+            continue
+        relevant_data.append(fine_row)
     return relevant_data
 
 
@@ -123,24 +127,12 @@ def get_width(width: str) -> Decimal:
     return Decimal(round(Decimal(width.split(" ")[0]), 4))
 
 
-def get_time_range(time: str, increment_mins: int) -> (datetime, datetime):
-    low = hysplit.get_date(time)
-    high = low + timedelta(minutes=increment_mins)
-    return low, high
+def get_space_bounds(value: Decimal, diff: Decimal):
+    return value - diff, value + diff
 
 
-def is_within(time_range: (datetime, datetime), timestamp: str) -> bool:
-    return time_range[0] <= hysplit.get_date(timestamp) < time_range[1]
-
-
-def get_cell_bounds(latitude: str, longitude: str, width: Decimal) -> dict:
-    grid_center = Point(Decimal(latitude), Decimal(longitude))
-    lower = Point(grid_center.latitude - width / 2, grid_center.longitude - width / 2)
-    upper = Point(grid_center.latitude + width / 2, grid_center.longitude + width / 2)
-    grid_bounds = {"center": grid_center,
-                   "box": Box(lower, upper),
-                   "width": width}
-    return grid_bounds
+def check_bounds(value: Decimal, bounds: tuple) -> bool:
+    return bounds[0] < value < bounds[1]
 
 
 interpolations = {

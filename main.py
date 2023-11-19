@@ -24,8 +24,8 @@ def quality_check():
 
 
 if __name__ == '__main__':
-    test_drive(settings.DRIVER_SLEEP_SECONDS)
-    # quality_check()
+    # test_drive(settings.DRIVER_SLEEP_SECONDS)
+    quality_check()
     # coinciding_points_check()
 
     # hysplit_test.grid_test(False)  # full run
