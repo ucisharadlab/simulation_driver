@@ -223,8 +223,7 @@ def slow_hysplit_run():
 
 def get_measures(test_name: str, test_time: str, base_path: str):
     measurements_file = (get_test_prefix(base_path, test_name,
-                                         get_date_path_suffix(test_time)) /
-                         "runtime_measurements.csv")
+                                         get_date_path_suffix(test_time)) / "runtime_measurements.csv")
     with (open(measurements_file, 'r') as measures_file):
         attributes = measures_file.readline().strip('\n').replace("__", "::").split(",")
         for line in measures_file:
@@ -243,7 +242,7 @@ def get_measures_meta_attributes() -> set:
 
 
 def get_test_prefix(base_path: str, test_name: str, test_time: str) -> Path:
-    return Path(base_path) / test_name / test_time
+    return Path(base_path).resolve() / test_name / test_time
 
 
 def set_outputs(hysplit: Hysplit, output_path: Path, run_id: int, run_params: dict) -> None:
@@ -264,7 +263,8 @@ def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) 
 
 def get_quality_path(base_path: str, test_details: dict) -> Path:
     date_str = get_date_path_suffix(test_details["date"])
-    return Path(base_path) / test_details['name'] / date_str / "measures.csv"
+    current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    return Path(base_path) / test_details['name'] / date_str / f"measures_{current_date_str}.csv"
 
 
 def sleep():

@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import shutil
 import threading
@@ -11,6 +12,9 @@ from datetime import datetime
 
 from simulator.simulator import CommandLineSimulator, base_dir_macro
 from util.util import FileUtil, StringUtil
+
+
+logger = logging.getLogger("Main")
 
 
 class Hysplit(CommandLineSimulator):

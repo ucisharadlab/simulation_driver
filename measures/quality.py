@@ -1,5 +1,5 @@
+import logging
 from _decimal import Decimal
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from simulator import hysplit
@@ -8,6 +8,7 @@ from test_helpers import hysplit_test
 from measures.error_measures import get_error, aggregate
 
 
+logger = logging.getLogger("Main")
 spacing_param_key = "%output_grids%::%spacing%"
 sampling_param_key = "%output_grids%::%sampling%"
 
@@ -38,7 +39,7 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
 
     with measures_path.open('a+') as file:
         for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
-            print(f"Starting: {line['run_id']}\n")
+            logger.info(f"Starting: {line['run_id']}")
 
             test_config = get_result_config(base_path, test_details, line['run_id'])
             test_params = list()
@@ -53,7 +54,7 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
 
             line.update({'mae': str(round(errors["total_mae"], 5)), 'mse': str(round(errors["total_mse"], 5))})
             file.write(",".join(line.values()) + "\n")
-    print(f"Written to: {measures_path}")
+    logger.info(f"Written to: {measures_path}")
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
@@ -78,8 +79,8 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.results:
-        if row_count % 1000 == 0:
-            print(f"Starting row {row_count} at time: {datetime.now()}")
+        if row_count % 2000 == 0:
+            logger.info(f"Starting row {row_count}")
         row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])
                               for row in get_matching_data(row, dataset_coarse, dataset_fine)]

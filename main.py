@@ -1,8 +1,25 @@
+import logging
+
 import settings
 from driver import Driver
 from measures import quality
 from repo.edb_repo import EdbRepo
 from test_helpers.hysplit_test import *
+
+
+def init():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s: %(message)s',
+        handlers=[logging.FileHandler(get_log_file_name()), logging.StreamHandler()]
+    )
+
+
+def get_log_file_name():
+    current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    path = Path(settings.LOG_FILE_PATH).resolve() / f"driver_{current_date_str}.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def test_drive(sleep_seconds):
@@ -24,6 +41,7 @@ def quality_check():
 
 
 if __name__ == '__main__':
+    init()
     # test_drive(settings.DRIVER_SLEEP_SECONDS)
     quality_check()
     # coinciding_points_check()
