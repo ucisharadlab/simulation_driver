@@ -161,8 +161,12 @@ def get_time(date_str: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
 
 
-def get_date_path_suffix(date_str) -> str:
-    return get_time(date_str).strftime("%Y-%m-%d_%H-%M")
+def get_date_path_suffix(date_str: str) -> str:
+    return get_date_suffix(get_time(date_str))
+
+
+def get_date_suffix(date: datetime) -> str:
+    return date.strftime("%Y-%m-%d_%H-%M")
 
 
 def get_param(name: str, value: str) -> tuple:

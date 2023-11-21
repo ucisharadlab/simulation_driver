@@ -11,6 +11,7 @@ from measures.error_measures import get_error, aggregate
 logger = logging.getLogger("Main")
 spacing_param_key = "%output_grids%::%spacing%"
 sampling_param_key = "%output_grids%::%sampling%"
+line_delimiter = ","
 
 
 class HysplitResult:
@@ -36,10 +37,12 @@ class HysplitResult:
 def measure_quality(test_details: dict, base_details: dict, base_path: str = "./debug/hysplit_out"):
     base_config = get_result_config(base_path, base_details, base_details["run_id"])
     measures_path = hysplit_test.get_quality_path(base_path, test_details).resolve()
+    runtime_measures = hysplit_test.get_measures(test_details['name'], test_details["date"], base_path)
 
     with measures_path.open('a+') as file:
-        for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
-            logger.info(f"Starting: {line['run_id']}")
+        file.write(line_delimiter.join(runtime_measures[0].keys()) + ",MAE,MSE\n")
+        for line in runtime_measures:
+            logger.info(f"Started measuring for: {line['run_id']}")
 
             test_config = get_result_config(base_path, test_details, line['run_id'])
             test_params = list()
@@ -53,7 +56,8 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
                                      lambda v, r: interpolate(test_params, v, r))
 
             line.update({'mae': str(round(errors["total_mae"], 5)), 'mse': str(round(errors["total_mse"], 5))})
-            file.write(",".join(line.values()) + "\n")
+            file.write(line_delimiter.join(line.values()) + "\n")
+            file.flush()
     logger.info(f"Written to: {measures_path}")
 
 
@@ -79,7 +83,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.results:
-        if row_count % 2000 == 0:
+        if row_count % 100000 == 0:
             logger.info(f"Starting row {row_count}")
         row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])

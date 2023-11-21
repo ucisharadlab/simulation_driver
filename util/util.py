@@ -27,8 +27,23 @@ class FileUtil:
         if not os.path.exists(path):
             os.mkdir(path)
 
+    @staticmethod
+    def read(path: Path, delimiter: str = ",") -> (dict, [list]):
+        lines = list()
+        with open(path, "r") as file:
+            columns = file.readline().split(delimiter)
+            schema = {columns[i].strip(): i for i in range(0, len(columns))}
+            for line in file:
+                lines.append(line.strip('\n').split(','))
+        return schema, lines
+
 
 class StringUtil:
+    comma = ","
+    tab = "\t"
+    underscore = "_"
+    colon = ":"
+
     @staticmethod
     def macro_replace(macros: dict, initial_text: str) -> str:
         for key in macros.keys():

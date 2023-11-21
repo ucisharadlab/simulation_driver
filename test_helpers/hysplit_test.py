@@ -1,12 +1,14 @@
 import platform  # to get the current CPU platform (arm or x86); used for sleeping to avoid overheading.
 import time
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 import util.util
+from simulator import hysplit
 from simulator.hysplit import Hysplit, get_date_path_suffix
 from test_helpers.test_data import slow_params
-from util.util import RangeUtil
+from util.util import RangeUtil as ranges, StringUtil as string
 
 
 def default_test():
@@ -183,12 +185,12 @@ def output_grid_span_test(start=0.0, lat_end=180.0, long_end=360.0, step=10, att
     }
 
     test_values = list()
-    for span in RangeUtil.decimal_range(start, lat_end + step, step):
+    for span in ranges.decimal_range(start, lat_end + step, step):
         input_span = span if span > 0 else 1.0
         default_grid["%span%"] = f"{input_span} {input_span}"
         test_values.append((input_span, {"%output_grids%": [default_grid.copy()]}))
 
-    for long_span in RangeUtil.decimal_range(lat_end, long_end + step, step * 2):
+    for long_span in ranges.decimal_range(lat_end, long_end + step, step * 2):
         default_grid["%span%"] = f"{lat_end} {long_span}"
         test_values.append((long_span, {"%output_grids%": [default_grid.copy()]}))
     return test("span", test_values, attempts)
@@ -225,7 +227,8 @@ def get_measures(test_name: str, test_time: str, base_path: str):
     measurements_file = (get_test_prefix(base_path, test_name,
                                          get_date_path_suffix(test_time)) / "runtime_measurements.csv")
     with (open(measurements_file, 'r') as measures_file):
-        attributes = measures_file.readline().strip('\n').replace("__", "::").split(",")
+        attributes = (measures_file.readline().strip('\n')
+                      .replace(string.underscore * 2, string.colon * 2).split(","))
         for line in measures_file:
             values = line.strip('\n').split(',')
             measure = dict()
@@ -265,6 +268,22 @@ def get_quality_path(base_path: str, test_details: dict) -> Path:
     date_str = get_date_path_suffix(test_details["date"])
     current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
     return Path(base_path) / test_details['name'] / date_str / f"measures_{current_date_str}.csv"
+
+
+def get_sampling_rate_mins(sampling: str) -> int:
+    rate = sampling.split(' ')[-3:]
+    days, hours, minutes = rate[0], rate[1], rate[2]
+    return 24 * 60 * int(days) + 60 * int(hours) + int(minutes)
+
+
+parsers = {
+    "spacing": lambda v: Decimal(round(Decimal(v.split(" ")[0]), 4)),
+    "sampling": get_sampling_rate_mins
+}
+
+
+def parse(param_name: str, value: str) -> Decimal:
+    return parsers[param_name](value)
 
 
 def sleep():
