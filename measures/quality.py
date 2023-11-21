@@ -44,7 +44,7 @@ def measure_quality(test_details: dict, base_details: dict, base_path: str = "./
         for line in runtime_measures:
             logger.info(f"Started measuring for: {line['run_id']}")
 
-            test_config = get_result_config(base_path, test_details, line['run_id'])
+            test_config = get_result_config(base_path, test_details, line["run_id"])
             test_params = list()
             for key, value in line.items():
                 if key in hysplit_test.get_measures_meta_attributes():
