@@ -8,7 +8,7 @@ import matplotlib.pyplot as plotlib
 import numpy
 import numpy as np
 
-import util.util
+import util.file_util
 from simulator import hysplit
 
 
@@ -29,7 +29,16 @@ def plot(x_data, y_data, label: tuple, save_file: str):
     plotlib.show()
 
 
-def plot_all(data_files: list, labels: list = None, plot_path: str = "./debug/hysplit_out/plots/", ext: str = "jpg"):
+def plot_line(x_data, y_data, colour: str):
+    plotlib.plot(x_data, y_data, color=colour, alpha=0.65)
+
+
+def set_labels(x_label, y_label):
+    plotlib.xlabel(x_label)
+    plotlib.ylabel(y_label)
+
+
+def plot_all(data_files: list, labels: list = None, plot_path: str = "./debug/hysplit_out/plots/", ext: str = "pdf"):
     for index in range(len(data_files)):
         experiment, experiment_path, attempts = data_files[index][0], data_files[index][1], data_files[index][2]
         label = labels[index]
@@ -50,7 +59,7 @@ def plot_all(data_files: list, labels: list = None, plot_path: str = "./debug/hy
 
 def plot_qualities(config: dict, results_base_name: str = "measures",
                    base_path: str = "./debug/hysplit_out/", plots_base_path: str = "./debug/hysplit_out/plots",
-                   ext: str = "jpg"):
+                   ext: str = "pdf"):
     measures_path = (Path(base_path) / config["test_name"] / config["test_time"]
                      / f"{results_base_name}_{config['measure_time']}.csv").resolve()
     schema, lines = util.util.FileUtil.read(measures_path)
@@ -58,25 +67,31 @@ def plot_qualities(config: dict, results_base_name: str = "measures",
     param_name = config["measure_param"]
     lines = lines[lines[:, schema[param_name]].argsort()]
     param_values = [config["parse"](value) for value in lines[:, schema[param_name]]]
-    data = {param_name: list(), "mae": list(), "mse": list(), "times": list()}
-    for i in range(0, len(param_values)):
-        skip = False
-        for param, value in config["constants"]:
-            if lines[i][schema[param]] != value:
-                skip = True
-                break
-        if skip: continue
-        value = param_values[i]
-        data[param_name].append(value)
-        data["mae"].append(Decimal(lines[i][schema["MAE"]]))
-        data["mse"].append(Decimal(lines[i][schema["MSE"]]))
-        data["times"].append(Decimal(lines[i][schema["DURATION_S"]]))
+    data = dict()
+    for constant_config in config["constants"]:
+        instance_data = {param_name: list(), "mae": list(), "mse": list(), "times": list()}
+        for i in range(0, len(param_values)):
+            skip = False
+            for param, value in constant_config.items():
+                if param in schema and lines[i][schema[param]] != value:
+                    skip = True
+                    break
+            if skip:
+                continue
+            value = param_values[i]
+            instance_data[param_name].append(value)
+            instance_data["mae"].append(Decimal(lines[i][schema["MAE"]]))
+            instance_data["mse"].append(Decimal(lines[i][schema["MSE"]]))
+            instance_data["times"].append(Decimal(lines[i][schema["DURATION_S"]]))
+        data[constant_config["LABEL"]] = instance_data
     suffix = hysplit.get_date_suffix(datetime.now())
     param_clean = config["label"]
-    plot_path = Path(plots_base_path).resolve() / param_clean.lower()
+    plot_path = Path(plots_base_path).resolve() / param_clean.lower() / suffix
     plot_path.mkdir(parents=True, exist_ok=True)
-    plot(data[param_name], data["mae"], (param_clean, "MAE"), str(plot_path / f"abs_error_{suffix}.{ext}"))
-    plot(data[param_name], data["mse"], (param_clean, "MSE"), str(plot_path / f"sq_error_{suffix}.{ext}"))
-    plot(data[param_name], data["times"], (param_clean, "Time"), str(plot_path / f"times_{suffix}.{ext}"))
-    plot(data["mae"], data["times"], ("MAE", "Time"), str(plot_path / f"mae_time_{suffix}.{ext}"))
-    plot(data["mse"], data["times"], ("MSE", "Time"), str(plot_path / f"mse_time_{suffix}.{ext}"))
+    plot_measures = [(param_name, "mae"), (param_name, "mse"), (param_name, "times"), ("mae", "times"), ("mse", "times")]
+    for x_measure, y_measure in plot_measures:
+        set_labels(x_measure.lower(), y_measure.lower())
+        for constant in config["constants"]:
+            plot_data = data[constant["LABEL"]]
+            plot_line(plot_data[x_measure], plot_data[y_measure], constant["COLOR"])
+        plotlib.savefig(str(plot_path / f"{x_measure.lower()}_{y_measure.lower()}_{suffix}.{ext}"))

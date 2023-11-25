@@ -4,11 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-import util.util
-from simulator import hysplit
 from simulator.hysplit import Hysplit, get_date_path_suffix
 from test_helpers.test_data import slow_params
-from util.util import RangeUtil as ranges, StringUtil as string
+from util import string_util as strings, range_util as ranges
 
 
 def default_test():
@@ -166,7 +164,7 @@ def output_grid_spacing_test(start=0.1, end=3.0, step=0.1, attempts=1):
         "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
     test_values = [(0.01, {"%output_grids%": [default_grid.copy()]})]
-    for space in util.util.RangeUtil.decimal_range(start, end + step, step):
+    for space in ranges.decimal_range(start, end + step, step):
         input_space = space if space > 0 else 0.001
         default_grid["%spacing%"] = f"{input_space} {input_space}"
         test_values.append((space, {"%output_grids%": [default_grid.copy()]}))
@@ -223,18 +221,20 @@ def slow_hysplit_run():
     return test("slow_run", parameter_dict, 1)
 
 
-def get_measures(test_name: str, test_time: str, base_path: str):
+def get_measures(test_name: str, test_time: str, base_path: str) -> [dict]:
     measurements_file = (get_test_prefix(base_path, test_name,
                                          get_date_path_suffix(test_time)) / "runtime_measurements.csv")
+    recorded_measures = list()
     with (open(measurements_file, 'r') as measures_file):
         attributes = (measures_file.readline().strip('\n')
-                      .replace(string.underscore * 2, string.colon * 2).split(","))
+                      .replace(strings.underscore * 2, strings.colon * 2).split(","))
         for line in measures_file:
             values = line.strip('\n').split(',')
             measure = dict()
             for i in range(0, len(values)):
                 measure[attributes[i].lower()] = values[i]
-            yield measure
+            recorded_measures.append(measure)
+    return recorded_measures
 
 
 measures_meta_attributes = {"attempt_id", "run_id", "duration_s"}
@@ -264,10 +264,13 @@ def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) 
     return output_path, measures_path
 
 
+bucket_macro = "%bucket%"
+
+
 def get_quality_path(base_path: str, test_details: dict) -> Path:
     date_str = get_date_path_suffix(test_details["date"])
     current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    return Path(base_path) / test_details['name'] / date_str / f"measures_{current_date_str}.csv"
+    return Path(base_path) / test_details["name"] / date_str / f"measures_{bucket_macro}_{current_date_str}.csv"
 
 
 def get_sampling_rate_mins(sampling: str) -> int:

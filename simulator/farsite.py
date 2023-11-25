@@ -3,7 +3,7 @@ import os
 from shapely.geometry import Point, Polygon
 
 from simulator.simulator import CommandLineSimulator, Simulator
-from util.util import FileUtil, StringUtil
+from util.file_util import FileUtil, StringUtil
 
 
 def check_distance(cell, surface):
@@ -28,7 +28,7 @@ def get_fire_mapping(surface, points_grid, save_path):
 def get_points_grid(coordinates: tuple, unit: int):
     points_grid = list()
     x_min, y_min, x_max, y_max = coordinates[0][0], coordinates[0][1], \
-                                 coordinates[1][0], coordinates[1][1]
+        coordinates[1][0], coordinates[1][1]
     for y in range(y_min + unit, y_max + unit, unit):
         row = list()
         for x in range(x_min + unit, x_max + unit, unit):

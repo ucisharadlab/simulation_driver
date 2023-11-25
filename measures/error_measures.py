@@ -4,7 +4,7 @@ from _decimal import Decimal
 
 def get_error(coarse_value: Decimal, dataset: [Decimal], interpolate) -> Decimal:
     value = interpolate(coarse_value, dataset)
-    return aggregate([value - d for d in dataset], 'mae')
+    return aggregate([value - d for d in dataset], 'sum')
 
 
 def aggregate(dataset: [Decimal], error_type: str) -> Decimal:
@@ -21,5 +21,6 @@ def get_squares_mean(values: [Decimal]) -> Decimal:
 
 measure_types = {
     "mae": get_absolute_mean,
-    "mse": get_squares_mean
+    "mse": get_squares_mean,
+    "sum": lambda values: sum(values)
 }

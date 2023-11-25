@@ -37,7 +37,7 @@ class Simulator:
         self.execution_params[outer_key][0][inner_key] = value
 
     def set_parameters(self, params: dict) -> None:
-        if params is None or len(params) < 1:
+        if not params:
             return
         for key in params.keys():
             self.set_parameter(key, params[key])

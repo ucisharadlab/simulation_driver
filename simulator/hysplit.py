@@ -7,11 +7,10 @@ from pathlib import Path
 
 import settings
 
-from decimal import *
 from datetime import datetime
 
 from simulator.simulator import CommandLineSimulator, base_dir_macro
-from util.util import FileUtil, StringUtil
+from util import file_util, string_util
 
 
 logger = logging.getLogger("Main")
@@ -30,7 +29,7 @@ class Hysplit(CommandLineSimulator):
             if param == "%keys_with_count%":
                 continue
             old_value = self.execution_params[param]
-            self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
+            self.execution_params[param] = string_util.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
         os.chdir(self.execution_params[base_dir_macro])
@@ -39,12 +38,12 @@ class Hysplit(CommandLineSimulator):
         control_params = self.get_parameter("%control_file%")[0]
         template_file = (self.get_absolute_path(control_params["%template_path%"])
                          / control_params["%template_file%"])
-        FileUtil.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
+        file_util.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
     def prepare_command(self) -> str:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
-        self.set_parameter("%output_grids%::%file%", StringUtil.macro_replace(
+        self.set_parameter("%output_grids%::%file%", string_util.macro_replace(
             self.execution_params, self.execution_params["%output_grids%"][0]["%file%"]))
 
         output_grids = self.get_parameter("%output_grids%")
