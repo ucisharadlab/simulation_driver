@@ -9,7 +9,7 @@ def decimal_range(start, stop, increment):
 def bucketize(parameters: list, bucket_count: int = 1):
     buckets = list()
     for i in range(0, bucket_count):
-        buckets.append((i, list()))
+        buckets.append(list())
     for i in range(0, len(parameters)):
-        buckets[i % bucket_count][1].append(parameters[i])
+        buckets[i % bucket_count].append(parameters[i])
     return buckets

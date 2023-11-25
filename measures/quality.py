@@ -1,5 +1,6 @@
 import logging
 from _decimal import Decimal
+from multiprocessing import current_process
 from pathlib import Path
 
 from simulator import hysplit
@@ -7,13 +8,20 @@ from simulator.hysplit import Hysplit
 from test_helpers import hysplit_test
 from measures.error_measures import get_error, aggregate
 from test_helpers.hysplit_test import bucket_macro
-from util.parallel_processing import run_parallel_processes
+from util.parallel_processing import run_processes
 
-logger = logging.getLogger("Main")
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 spacing_param_key = "%output_grids%::%spacing%"
 sampling_param_key = "%output_grids%::%sampling%"
 column_delimiter = ","
 measure_types = ["mae", "mse", "mape"]
+
+
+def set_logger():
+    global logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
 
 class HysplitResult:
@@ -43,42 +51,50 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
     measures_path = str(hysplit_test.get_quality_path(base_path, test_details).resolve())
     runtime_measures = hysplit_test.get_measures(test_details['name'], test_details["date"], base_path)
 
+    test_configs = list()
     for line in runtime_measures:
-        logger.info(f"Started measuring for: {line['run_id']}")
-
         test_config = get_result_config(base_path, test_details, line["run_id"])
-        test_configs = list()
         for key, value in line.items():
             param_name, param_value = hysplit.get_param(key, value)
             test_config.set_parameter(param_name, param_value)
         test_configs.append({"config": test_config, "details": line})
 
-        run_parallel_processes(measure_bucket_qualities, test_configs, process_count, {
-            "base_config": base_config,
-            "get_value": lambda v, r: interpolate(line.keys(), v, r),
-            "result_path": measures_path})
+    run_processes(measure_bucket_qualities, test_configs, process_count, {
+        "base_config": base_config,
+        "result_path": measures_path})
     logger.info(f"Written to: {measures_path}")
 
 
-def measure_bucket_qualities(bucket: tuple, parameters: dict):
-    bucket_id = bucket[0]
-    test_runs = bucket[1]
+def measure_bucket_qualities(test_runs: list, parameters: dict):
+    set_logger()
+    logger.info("Starting: %s", current_process().name)
 
-    result_path = Path(parameters["result_path"].replace(bucket_macro, bucket_id))
+    result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
     with result_path.open('a+') as file:
-        file.write(column_delimiter.join(test_runs[0][1].keys() + measure_types))
+        file.write(column_delimiter.join(list(test_runs[0].keys()) + measure_types))
 
     for run in test_runs:
         run_config = run["config"]
-        run_config.fetch_results()
-        error_aggregates, errors = compute_errors(run_config, parameters["base_config"], parameters["get_value"])
-
         run_details = run["details"]
+        run_id = run_details["run_id"]
+        logger.info("Comparing run: %s", run_id)
+        run_config.fetch_results()
+        error_aggregates, errors = None, None
+        try:
+            error_aggregates, errors = compute_errors(run_config, parameters["base_config"],
+                                                      lambda v, r: interpolate(run_details.keys(), v, r))
+        except Exception as e:
+            logger.error("Could not compute errors for %s", run_id)
+            logger.exception(e, exc_info=True)
+
+        if not (error_aggregates and errors):
+            continue
+
         run_details.update(error_aggregates)
         with result_path.open("a+") as result_file:
-            result_file.write(column_delimiter.join(run_details.values()) + "\n")
+            result_file.write(column_delimiter.join([str(d) for d in run_details.values()]) + "\n")
             result_file.flush()
-        errors_dump_path = result_path.parent / f"errors_run-id_{run_details['run_id']}.txt"
+        errors_dump_path = result_path.parent / f"errors_run-id_{run_id}.txt"
         with errors_dump_path.open("w") as errors_file:
             errors_file.writelines([f"{error}\n" for error in errors])
 
@@ -92,7 +108,7 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
 
 
 def compare_quality(test_result: HysplitResult, ground_truth_result: HysplitResult,
-                    get_value, error_types: [str] = None):
+                    get_value):
     test_result.fetch_results()
     ground_truth_result.fetch_results()
     return compute_errors(test_result, ground_truth_result, get_value)
@@ -104,14 +120,15 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
-        if row_count % 100000 == 0:
-            logger.info(f"Starting row {row_count}")
         row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])
                               for row in get_matching_data(row, dataset_coarse, dataset_fine)]
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
         error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, get_value))
+        if row_count % 100000 == 0:
+            logger.info(f"Row: {row_count}")
+            logger.info(f"Relevant data size: {len(relevant_fine_data)}")
     errors = dict()
     for measure_type in measure_types:
         errors[measure_type] = aggregate(error_measures, measure_type)

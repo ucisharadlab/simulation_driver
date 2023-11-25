@@ -22,5 +22,6 @@ def get_squares_mean(values: [Decimal]) -> Decimal:
 measure_types = {
     "mae": get_absolute_mean,
     "mse": get_squares_mean,
-    "sum": lambda values: sum(values)
+    "sum": lambda values: sum(values),
+    "mape": lambda values: sum(values)
 }
