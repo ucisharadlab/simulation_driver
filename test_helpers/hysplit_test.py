@@ -270,7 +270,8 @@ bucket_macro = "%bucket%"
 def get_quality_path(base_path: str, test_details: dict) -> Path:
     date_str = get_date_path_suffix(test_details["date"])
     current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    return Path(base_path) / test_details["name"] / date_str / f"measures_{bucket_macro}_{current_date_str}.csv"
+    return (Path(base_path) / test_details["name"] / date_str / "quality"
+            / current_date_str / f"measures_{bucket_macro}.csv")
 
 
 def get_sampling_rate_mins(sampling: str) -> int:

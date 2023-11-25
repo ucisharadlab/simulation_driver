@@ -48,7 +48,8 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
                     base_path: str = "./debug/hysplit_out"):
     base_config = get_result_config(base_path, base_details, base_details["run_id"])
     base_config.fetch_results()
-    measures_path = str(hysplit_test.get_quality_path(base_path, test_details).resolve())
+    measures_path = hysplit_test.get_quality_path(base_path, test_details).resolve()
+    measures_path.parent.mkdir(parents=True, exist_ok=True)
     runtime_measures = hysplit_test.get_measures(test_details['name'], test_details["date"], base_path)
 
     test_configs = list()
@@ -61,7 +62,7 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
 
     run_processes(measure_bucket_qualities, test_configs, process_count, {
         "base_config": base_config,
-        "result_path": measures_path})
+        "result_path": str(measures_path)})
     logger.info(f"Written to: {measures_path}")
 
 
@@ -71,7 +72,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
     result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
     with result_path.open('a+') as file:
-        file.write(column_delimiter.join(list(test_runs[0].keys()) + measure_types))
+        file.write(column_delimiter.join(list(test_runs[0].keys()) + measure_types) + "\n")
 
     for run in test_runs:
         run_config = run["config"]
@@ -90,11 +91,12 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
         if not (error_aggregates and errors):
             continue
 
-        run_details.update(error_aggregates)
+        error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
+        run_details.update(error_measures)
         with result_path.open("a+") as result_file:
             result_file.write(column_delimiter.join([str(d) for d in run_details.values()]) + "\n")
             result_file.flush()
-        errors_dump_path = result_path.parent / f"errors_run-id_{run_id}.txt"
+        errors_dump_path = result_path.parent / f"errors_run-id_{run_id}_.txt"
         with errors_dump_path.open("w") as errors_file:
             errors_file.writelines([f"{error}\n" for error in errors])
 
@@ -117,18 +119,19 @@ def compare_quality(test_result: HysplitResult, ground_truth_result: HysplitResu
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
                    get_value) -> tuple:
     dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
+    fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
-        row_count += 1
         relevant_fine_data = [Decimal(row["concentration"])
-                              for row in get_matching_data(row, dataset_coarse, dataset_fine)]
+                              for row in get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
         error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, get_value))
         if row_count % 100000 == 0:
             logger.info(f"Row: {row_count}")
             logger.info(f"Relevant data size: {len(relevant_fine_data)}")
+        row_count += 1
     errors = dict()
     for measure_type in measure_types:
         errors[measure_type] = aggregate(error_measures, measure_type)
@@ -148,21 +151,34 @@ def validate_datasets(dataset1, dataset2) -> tuple:
     return dataset_fine, dataset_coarse
 
 
-def get_matching_data(row: dict, dataset_coarse: HysplitResult, dataset_fine: HysplitResult) -> [dict]:
-    fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
+def group_by_time(dataset: HysplitResult) -> dict:
+    grouped_data = dict()
+    for row in dataset.fetch_results():
+        timestamp = row["timestamp"]
+        if timestamp not in grouped_data:
+            grouped_data[timestamp] = list()
+        grouped_data[timestamp].append(row)
+    return grouped_data
+
+
+def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: Decimal, grouped_data: dict) -> [dict]:
     coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
     row_latitude, row_longitude = Decimal(row["latitude"]), Decimal(row["longitude"])
     latitude_bounds = get_space_bounds(row_latitude, (coarse_spacing + fine_spacing) / 2)
     longitude_bounds = get_space_bounds(row_longitude, (coarse_spacing + fine_spacing) / 2)
     sampling_rate = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     relevant_data = list()
-    for fine_row in dataset_fine.fetch_results():
-        time_diff_sec = (fine_row["timestamp"] - row["timestamp"]).total_seconds()
-        if (time_diff_sec < 0 or time_diff_sec / 60 > sampling_rate
-                or not check_bounds(Decimal(fine_row["latitude"]), latitude_bounds)
-                or not check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
-            continue
-        relevant_data.append(fine_row)
+
+    for timestamp in grouped_data.keys():
+        time_diff_sec = (timestamp - row["timestamp"]).total_seconds()
+        if time_diff_sec / 60 > sampling_rate:  # assumption: rows in hysplit result are ordered by time
+            break
+        for fine_row in grouped_data[timestamp]:
+            if (time_diff_sec < 0
+                    or not check_bounds(Decimal(fine_row["latitude"]), latitude_bounds)
+                    or not check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
+                continue
+            relevant_data.append(fine_row)
     return relevant_data
 
 
