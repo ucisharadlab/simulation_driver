@@ -3,10 +3,10 @@ from _decimal import Decimal
 from multiprocessing import current_process
 from pathlib import Path
 
+from measures.error_measures import get_error, aggregate
 from simulator import hysplit
 from simulator.hysplit import Hysplit
 from test_helpers import hysplit_test
-from measures.error_measures import get_error, aggregate
 from test_helpers.hysplit_test import bucket_macro
 from util import file_util
 from util.parallel_processing import run_processes
@@ -99,8 +99,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
         error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
         run_details.update(error_measures)
         file_util.write_list_to_line(result_path, run_details.values())
-        errors_dump_path = result_path.parent / f"errors_run_{run_id}.txt"
-        file_util.write_lines(errors_dump_path, errors)
+        file_util.write_json(result_path.parent / f"errors_run_{run_id}.txt", errors)
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
@@ -118,18 +117,23 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
+        error_row = {"row_value": row["concentration"]}
         relevant_fine_data = [Decimal(row["concentration"]) for row in
                               get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
+        error_row["fine_data"] = relevant_fine_data
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
-        error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, get_value))
+        for measure_type in measure_types:
+            error_row[measure_type] = get_error(Decimal(row["concentration"]), relevant_fine_data,
+                                                get_value, measure_type)
+        error_measures.append(error_row)
         if row_count % 100000 == 0:
             logger.info(f"Row: {row_count}")
             logger.info(f"Relevant data size: {len(relevant_fine_data)}")
         row_count += 1
     errors = dict()
     for measure_type in measure_types:
-        errors[measure_type] = aggregate(error_measures, measure_type)
+        errors[measure_type] = aggregate([measure[measure_type] for measure in error_measures], measure_type)
     return errors, error_measures
 
 

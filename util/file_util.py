@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -60,3 +61,8 @@ def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
     with file_path.open(mode) as file:
         file.writelines("\n".join(str(line) for line in lines))
         file.flush()
+
+
+def write_json(file_path: Path, data, mode: str = "w") -> None:
+    with file_path.open(mode) as file:
+        json.dump(data, file)
