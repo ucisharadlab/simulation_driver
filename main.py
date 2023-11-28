@@ -18,20 +18,22 @@ def test_drive(sleep_seconds):
 
 
 def quality_check():
-    defaults = {"%output_grids%::%spacing%": "0.1 0.1",
-                "%output_grids%::%sampling%": "00 00 30",
-                "%grid_center%": "35.727513, -118.786136",
-                "%span%": "180.0 360.0"}
+    defaults = {"%output_grids%::%spacing%": "0.001 0.001",
+                "%output_grids%::%sampling%": "00 00 05",
+                "%grid_center%": "34.12448, -118.40778",
+                "%span%": "5.0 5.0"}
     quality.measure_quality(
-        test_details={"name": "sampling", "date": "2023-09-14 04:44", "params": defaults},
-        base_details={"name": "sampling", "date": "2023-09-14 04:44", "params": defaults, "run_id": 120},
-        process_count=2)
+        test_details={"name": "grid_measurement", "date": "2023-11-26 23:17", "params": defaults},
+        # base_details={"name": "sampling", "date": "2023-09-14 04:44", "params": defaults, "run_id": 5},
+        base_details={"name": "grid_measurement", "date": "2023-11-26 23:17", "params": defaults, "run_id": 72},
+        process_count=4)
 
 
 if __name__ == '__main__':
     log.init()
     # test_drive(settings.DRIVER_SLEEP_SECONDS)
-    quality_check()
+    # quality_check()
+    grid_test()
     # config = {"test_name": "coinciding_points", "test_time": "2023-11-16_15-47",
     #           "measure_param": "OUTPUT_GRIDS__SAMPLING", "measure_time": "2023-11-21_00-25",
     #           "label": "Sampling", "parse": parsers["sampling"],

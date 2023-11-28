@@ -62,7 +62,7 @@ def plot_qualities(config: dict, results_base_name: str = "measures",
                    ext: str = "pdf"):
     measures_path = (Path(base_path) / config["test_name"] / config["test_time"]
                      / f"{results_base_name}_{config['measure_time']}.csv").resolve()
-    schema, lines = util.util.FileUtil.read(measures_path)
+    schema, lines = util.file_util.read(measures_path)
     lines = np.asarray(lines)
     param_name = config["measure_param"]
     lines = lines[lines[:, schema[param_name]].argsort()]

@@ -23,7 +23,7 @@ class Hysplit(CommandLineSimulator):
         working_path.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
         output_dir = self.get_parameter("%output_grids%::%dir%")
-        self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir))
+        self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir) + "/")
         os.chdir(working_path)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":

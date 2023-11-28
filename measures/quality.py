@@ -8,13 +8,13 @@ from simulator.hysplit import Hysplit
 from test_helpers import hysplit_test
 from measures.error_measures import get_error, aggregate
 from test_helpers.hysplit_test import bucket_macro
+from util import file_util
 from util.parallel_processing import run_processes
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 spacing_param_key = "%output_grids%::%spacing%"
 sampling_param_key = "%output_grids%::%sampling%"
-column_delimiter = ","
 measure_types = ["mae", "mse", "mape"]
 
 
@@ -50,20 +50,30 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
     base_config.fetch_results()
     measures_path = hysplit_test.get_quality_path(base_path, test_details).resolve()
     measures_path.parent.mkdir(parents=True, exist_ok=True)
-    runtime_measures = hysplit_test.get_measures(test_details['name'], test_details["date"], base_path)
+    measures_path_str = str(measures_path)
+    test_configs = prepare_test_config(test_details, base_path)
 
+    run_processes(measure_bucket_qualities, test_configs, process_count, {
+        "base_config": base_config,
+        "result_path": measures_path_str})
+
+    measure_files = list()
+    for i in range(0, process_count):
+        measure_files.append(Path(str(measures_path).replace(bucket_macro, str(i))))
+    merged_file = Path(measures_path_str.replace(f"_{bucket_macro}", ""))
+    file_util.merge(measure_files, merged_file)
+    logger.info(f"Written to: {merged_file}")
+
+
+def prepare_test_config(test_details: dict, base_path: str):
     test_configs = list()
-    for line in runtime_measures:
+    for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
         test_config = get_result_config(base_path, test_details, line["run_id"])
         for key, value in line.items():
             param_name, param_value = hysplit.get_param(key, value)
             test_config.set_parameter(param_name, param_value)
         test_configs.append({"config": test_config, "details": line})
-
-    run_processes(measure_bucket_qualities, test_configs, process_count, {
-        "base_config": base_config,
-        "result_path": str(measures_path)})
-    logger.info(f"Written to: {measures_path}")
+    return test_configs
 
 
 def measure_bucket_qualities(test_runs: list, parameters: dict):
@@ -71,34 +81,26 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
     logger.info("Starting: %s", current_process().name)
 
     result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
-    with result_path.open('a+') as file:
-        file.write(column_delimiter.join(list(test_runs[0].keys()) + measure_types) + "\n")
+    file_util.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types))
 
     for run in test_runs:
-        run_config = run["config"]
         run_details = run["details"]
         run_id = run_details["run_id"]
         logger.info("Comparing run: %s", run_id)
-        run_config.fetch_results()
-        error_aggregates, errors = None, None
+        run["config"].fetch_results()
         try:
-            error_aggregates, errors = compute_errors(run_config, parameters["base_config"],
+            error_aggregates, errors = compute_errors(run["config"], parameters["base_config"],
                                                       lambda v, r: interpolate(run_details.keys(), v, r))
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
             logger.exception(e, exc_info=True)
-
-        if not (error_aggregates and errors):
             continue
 
         error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
         run_details.update(error_measures)
-        with result_path.open("a+") as result_file:
-            result_file.write(column_delimiter.join([str(d) for d in run_details.values()]) + "\n")
-            result_file.flush()
-        errors_dump_path = result_path.parent / f"errors_run-id_{run_id}_.txt"
-        with errors_dump_path.open("w") as errors_file:
-            errors_file.writelines([f"{error}\n" for error in errors])
+        file_util.write_list_to_line(result_path, run_details.values())
+        errors_dump_path = result_path.parent / f"errors_run_{run_id}.txt"
+        file_util.write_lines(errors_dump_path, errors)
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
@@ -109,13 +111,6 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
     return config
 
 
-def compare_quality(test_result: HysplitResult, ground_truth_result: HysplitResult,
-                    get_value):
-    test_result.fetch_results()
-    ground_truth_result.fetch_results()
-    return compute_errors(test_result, ground_truth_result, get_value)
-
-
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
                    get_value) -> tuple:
     dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
@@ -123,8 +118,8 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
-        relevant_fine_data = [Decimal(row["concentration"])
-                              for row in get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
+        relevant_fine_data = [Decimal(row["concentration"]) for row in
+                              get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
         error_measures.append(get_error(Decimal(row["concentration"]), relevant_fine_data, get_value))
@@ -173,10 +168,11 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
         time_diff_sec = (timestamp - row["timestamp"]).total_seconds()
         if time_diff_sec / 60 > sampling_rate:  # assumption: rows in hysplit result are ordered by time
             break
+        if time_diff_sec < 0:
+            continue
         for fine_row in grouped_data[timestamp]:
-            if (time_diff_sec < 0
-                    or not check_bounds(Decimal(fine_row["latitude"]), latitude_bounds)
-                    or not check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
+            if not (check_bounds(Decimal(fine_row["latitude"]), latitude_bounds)
+                    and check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
                 continue
             relevant_data.append(fine_row)
     return relevant_data

@@ -27,7 +27,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
 
         with open(measures_path, "w") as measures_file:
             clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
-            measures_file.writelines(f"ATTEMPT_ID,RUN_ID{','.join(clean_keys)},DURATION_S\n")
+            measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
             for run_id, params in param_values:
                 set_outputs(hysplit, output_path, run_id, params)
                 print(f"{test_name} | Running: {run_id}, Total: {total_count}")
@@ -36,7 +36,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
                 duration_s = (datetime.now() - start).total_seconds()
                 print(f"Duration: {duration_s} s")
                 clean_values = [value.replace("\n", " ") for value in params.values()]
-                measures_file.writelines(f"{attempt},{run_id}{','.join(clean_values)},{duration_s}\n")
+                measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
                 sleep()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
@@ -224,7 +224,6 @@ def slow_hysplit_run():
 def get_measures(test_name: str, test_time: str, base_path: str) -> [dict]:
     measurements_file = (get_test_prefix(base_path, test_name,
                                          get_date_path_suffix(test_time)) / "runtime_measurements.csv")
-    recorded_measures = list()
     with (open(measurements_file, 'r') as measures_file):
         attributes = (measures_file.readline().strip('\n')
                       .replace(strings.underscore * 2, strings.colon * 2).split(","))
@@ -233,8 +232,7 @@ def get_measures(test_name: str, test_time: str, base_path: str) -> [dict]:
             measure = dict()
             for i in range(0, len(values)):
                 measure[attributes[i].lower()] = values[i]
-            recorded_measures.append(measure)
-    return recorded_measures
+            yield measure
 
 
 measures_meta_attributes = {"attempt_id", "run_id", "duration_s"}
@@ -257,7 +255,7 @@ def set_outputs(hysplit: Hysplit, output_path: Path, run_id: int, run_params: di
 
 
 def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (Path, Path):
-    base_path = Path(f"{directory}/{test_name}/{suffix}")
+    base_path = Path(f"{directory}/MainThread/debug/hysplit_out/{test_name}/{suffix}")  # fix hardcoded path
     output_path = base_path / str(attempt) / "dump"
     measures_path = base_path / f"runtime_measurements_{attempt}.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)

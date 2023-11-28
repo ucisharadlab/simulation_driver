@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from util import string_util
 from util.string_util import *
 
 
@@ -36,3 +37,26 @@ def read(path: Path, delimiter: str = ",") -> (dict, [list]):
         for line in file:
             lines.append(line.strip('\n').split(','))
     return schema, lines
+
+
+def merge(paths: [Path], merged_file: Path) -> None:
+    with merged_file.open("a+") as full_file:
+        for path in paths:
+            with path.open("r") as part_file:
+                full_file.write(part_file.read())
+
+
+def write_line(file_path: Path, text: str) -> None:
+    with file_path.open('a+') as file:
+        file.write(text + "\n")
+        file.flush()
+
+
+def write_list_to_line(file_path: Path, content: list, column_delimiter: str = string_util.comma) -> None:
+    write_line(file_path, column_delimiter.join(content))
+
+
+def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
+    with file_path.open(mode) as file:
+        file.writelines("\n".join(str(line) for line in lines))
+        file.flush()
