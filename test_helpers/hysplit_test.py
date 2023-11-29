@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from simulator.hysplit import Hysplit, get_date_path_suffix
+from simulator.hysplit import Hysplit
 from test_helpers.test_data import slow_params
 from util import string_util as strings, range_util as ranges
 
@@ -224,9 +224,8 @@ def slow_hysplit_run():
     return test("slow_run", parameter_dict, 1)
 
 
-def get_measures(test_name: str, test_time: str, base_path: str) -> [dict]:
-    measurements_file = (get_test_prefix(base_path, test_name,
-                                         get_date_path_suffix(test_time)) / "runtime_measurements.csv")
+def get_measures(test_name: str, test_time: str, thread_name: str, base_path: str) -> [dict]:
+    measurements_file = (get_test_prefix(base_path, test_name, test_time, thread_name) / "runtime_measurements_0.csv")
     with (open(measurements_file, 'r') as measures_file):
         attributes = (measures_file.readline().strip('\n')
                       .replace(strings.underscore * 2, strings.colon * 2).split(","))
@@ -245,8 +244,8 @@ def get_measures_meta_attributes() -> set:
     return measures_meta_attributes
 
 
-def get_test_prefix(base_path: str, test_name: str, test_time: str) -> Path:
-    return Path(base_path).resolve() / test_name / test_time
+def get_test_prefix(base_path: str, test_name: str, test_time: str, thread_name: str = "") -> Path:
+    return Path(base_path).resolve() / thread_name / test_name / test_time
 
 
 def set_outputs(hysplit: Hysplit, working_path: Path, output_path: Path, run_id: int, run_params: dict) -> None:
@@ -263,8 +262,8 @@ def set_outputs(hysplit: Hysplit, working_path: Path, output_path: Path, run_id:
     hysplit.set_parameter("%output_grids%", output_grids)
 
 
-def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (Path, Path):
-    working_path = Path(f"{directory}/MainThread").resolve()
+def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str, thread_name: str = "") -> (Path, Path):
+    working_path = Path(f"{directory}/{thread_name}").resolve()
     base_path = working_path / f"{test_name}/{suffix}"
     result_path = f"{test_name}/{suffix}"
     (working_path / result_path).mkdir(parents=True, exist_ok=True)
@@ -280,10 +279,9 @@ bucket_macro = "%bucket%"
 
 
 def get_quality_path(base_path: str, test_details: dict) -> Path:
-    date_str = get_date_path_suffix(test_details["date"])
     current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    return (Path(base_path) / test_details["name"] / date_str / "quality"
-            / current_date_str / f"measures_{bucket_macro}.csv")
+    return (get_test_prefix(base_path, test_details["name"], test_details["date"], test_details["thread_name"])
+            / "quality" / current_date_str / f"measures_{bucket_macro}.csv")
 
 
 def get_sampling_rate_mins(sampling: str) -> int:

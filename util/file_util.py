@@ -1,6 +1,7 @@
-import json
 import os
 from pathlib import Path
+
+import simplejson as json
 
 from util import string_util
 from util.string_util import *
@@ -40,10 +41,15 @@ def read(path: Path, delimiter: str = ",") -> (dict, [list]):
     return schema, lines
 
 
-def merge(paths: [Path], merged_file: Path) -> None:
+def merge(paths: [Path], merged_file: Path, headers: bool = True) -> None:
+    header_written = False
     with merged_file.open("a+") as full_file:
         for path in paths:
             with path.open("r") as part_file:
+                first_line = part_file.readline()
+                if (not header_written) and headers:
+                    full_file.write(first_line)
+                    header_written = True
                 full_file.write(part_file.read())
 
 

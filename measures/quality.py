@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 from _decimal import Decimal
 from multiprocessing import current_process
 from pathlib import Path
@@ -44,7 +45,7 @@ class HysplitResult:
         return self.results
 
 
-def measure_quality(test_details: dict, base_details: dict, process_count: int = 1,
+def measure_quality(test_details: dict, base_details: dict, process_count: int = multiprocessing.cpu_count(),
                     base_path: str = "./debug/hysplit_out"):
     base_config = get_result_config(base_path, base_details, base_details["run_id"])
     base_config.fetch_results()
@@ -67,7 +68,8 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
 
 def prepare_test_config(test_details: dict, base_path: str):
     test_configs = list()
-    for line in hysplit_test.get_measures(test_details['name'], test_details["date"], base_path):
+    for line in hysplit_test.get_measures(test_details["name"], test_details["date"],
+                                          test_details["thread_name"], base_path):
         test_config = get_result_config(base_path, test_details, line["run_id"])
         for key, value in line.items():
             param_name, param_value = hysplit.get_param(key, value)
@@ -103,9 +105,9 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
-    file, _ = hysplit_test.get_output_paths(base_path, details['name'], 0,
-                                            hysplit_test.get_date_path_suffix(details["date"]))
-    file = file.parent / f"{file.stem}_{run_id}.txt"
+    _, file, _ = hysplit_test.get_output_paths(base_path, details["name"], 0,
+                                               details["date"], details["thread_name"])
+    file = file.parent / f"data_{file.stem}_{run_id}.txt"
     config = HysplitResult(file, details["params"] if "params" in details else dict())
     return config
 
@@ -123,9 +125,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         error_row["fine_data"] = relevant_fine_data
         if len(relevant_fine_data) == 0:
             relevant_fine_data.append(Decimal(0))
-        for measure_type in measure_types:
-            error_row[measure_type] = get_error(Decimal(row["concentration"]), relevant_fine_data,
-                                                get_value, measure_type)
+        error_row["errors"] = get_error(Decimal(row["concentration"]), relevant_fine_data, get_value)
         error_measures.append(error_row)
         if row_count % 100000 == 0:
             logger.info(f"Row: {row_count}")
@@ -133,7 +133,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         row_count += 1
     errors = dict()
     for measure_type in measure_types:
-        errors[measure_type] = aggregate([measure[measure_type] for measure in error_measures], measure_type)
+        errors[measure_type] = aggregate([row["errors"] for row in error_measures], measure_type)
     return errors, error_measures
 
 
