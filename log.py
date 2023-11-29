@@ -5,11 +5,13 @@ from pathlib import Path
 
 import settings
 
+log_format = "%(asctime)s %(processName)s %(name)s %(levelname)s: %(message)s"
+
 
 def init():
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(processName)s %(levelname)s: %(message)s",
+        format=log_format,
         handlers=[logging.StreamHandler()]
     )
     configure()
@@ -27,7 +29,7 @@ def configure():
     log_path = Path(settings.LOG_FILE_PATH).resolve()
     log_path.parent.mkdir(parents=True, exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(str(log_path), 'a', 100_000_000, 10)
-    formatter = logging.Formatter('%(asctime)s %(processName)s %(levelname)s: %(message)s')
+    formatter = logging.Formatter(log_format)
     handler.setFormatter(formatter)
     root = logging.getLogger()
     root.addHandler(handler)

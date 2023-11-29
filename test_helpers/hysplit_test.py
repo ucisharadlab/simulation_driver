@@ -1,3 +1,4 @@
+import logging
 import platform  # to get the current CPU platform (arm or x86); used for sleeping to avoid overheading.
 import time
 from datetime import datetime
@@ -8,6 +9,8 @@ from simulator.hysplit import Hysplit, get_date_path_suffix
 from test_helpers.test_data import slow_params
 from util import string_util as strings, range_util as ranges
 
+logger = logging.getLogger()
+
 
 def default_test():
     hysplit = Hysplit()
@@ -15,13 +18,13 @@ def default_test():
     hysplit.run()
     end = datetime.now()
     duration = end - start
-    print(f"Started at: {start}\nEnded at: {end}\nDuration: {duration.total_seconds()}")
+    logger.info(f"Started at: {start}\nEnded at: {end}\nDuration: {duration.total_seconds()}")
 
 
 def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
     attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
     for attempt in range(0, attempts):
-        output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
+        working_path, output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
         hysplit = Hysplit()
         total_count = len(param_values)
 
@@ -29,12 +32,12 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
             clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
             measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
             for run_id, params in param_values:
-                set_outputs(hysplit, output_path, run_id, params)
-                print(f"{test_name} | Running: {run_id}, Total: {total_count}")
+                set_outputs(hysplit, working_path, output_path, run_id, params)
+                logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
                 start = datetime.now()
                 hysplit.run(params)
                 duration_s = (datetime.now() - start).total_seconds()
-                print(f"Duration: {duration_s} s")
+                logger.info(f"Duration: {duration_s} s")
                 clean_values = [value.replace("\n", " ") for value in params.values()]
                 measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
                 sleep()
@@ -62,7 +65,7 @@ def grid_test(test_run=False):
     #   - output_grid.sampling: "00 00 00 00 00\n00 00 00 00 00\n00 HH MM"
 
     # Parameter values with larger indexes are slower to calculate.
-    total_run_time_values = ["1", "6", "12", "24", "36", "48", "60", "72", "96", "120", "180", "240"]
+    total_run_time_values = ["96"]
     output_grid_spacing_values = ["0.25", "0.2", "0.15", "0.1", "0.05", "0.02", "0.01", "0.005", "0.001"]
     output_grid_sampling_rates = ["08 00", "04 00", "02 00", "01 00", "00 30", "00 15", "00 10", "00 05"]
 
@@ -246,20 +249,31 @@ def get_test_prefix(base_path: str, test_name: str, test_time: str) -> Path:
     return Path(base_path).resolve() / test_name / test_time
 
 
-def set_outputs(hysplit: Hysplit, output_path: Path, run_id: int, run_params: dict) -> None:
+def set_outputs(hysplit: Hysplit, working_path: Path, output_path: Path, run_id: int, run_params: dict) -> None:
+    hysplit.set_parameter("%working_dir%", str(working_path))
     output_grids = hysplit.get_parameter("%output_grids%") if "%output_grids%" not in run_params.keys() \
         else run_params["%output_grids%"]
-    output_grids[0]["%dir%"] = str(output_path.parent) + "/"
-    output_grids[0]["%file%"] = f"{output_path.stem}_{str(run_id).replace('.', '-')}"
+    # output_grids[0]["%dir%"] = str(output_path.parent) + "/"
+    # output_grids[0]["%file%"] = f"{output_path.stem}_{str(run_id).replace('.', '-')}"
+
+    relative_out_path = output_path.relative_to(working_path)
+    output_grids[0]["%dir%"] = str(relative_out_path.parent) + "/"
+    output_grids[0]["%file%"] = f"{relative_out_path.stem}_{str(run_id).replace('.', '-')}"
+
     hysplit.set_parameter("%output_grids%", output_grids)
 
 
 def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str) -> (Path, Path):
-    base_path = Path(f"{directory}/MainThread/debug/hysplit_out/{test_name}/{suffix}")  # fix hardcoded path
+    working_path = Path(f"{directory}/MainThread").resolve()
+    base_path = working_path / f"{test_name}/{suffix}"
+    result_path = f"{test_name}/{suffix}"
+    (working_path / result_path).mkdir(parents=True, exist_ok=True)
+
     output_path = base_path / str(attempt) / "dump"
     measures_path = base_path / f"runtime_measurements_{attempt}.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    return output_path, measures_path
+
+    return working_path, output_path, measures_path
 
 
 bucket_macro = "%bucket%"

@@ -1,25 +1,17 @@
 import csv
-import logging
 import os
 import shutil
-import threading
+from datetime import datetime
 from pathlib import Path
 
 import settings
-
-from datetime import datetime
-
 from simulator.simulator import CommandLineSimulator, base_dir_macro
 from util import file_util, string_util
 
 
-logger = logging.getLogger("Main")
-
-
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        working_path = self.get_absolute_path(f"./debug/hysplit_out/{threading.current_thread().name}/")
-        self.set_parameter("%working_dir%", str(working_path))
+        working_path = self.get_absolute_path(self.get_parameter("%working_dir%"))
         working_path.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
         output_dir = self.get_parameter("%output_grids%::%dir%")
@@ -40,7 +32,7 @@ class Hysplit(CommandLineSimulator):
                          / control_params["%template_file%"])
         file_util.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
-    def prepare_command(self) -> str:
+    def prepare_command(self) -> [str]:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
         self.set_parameter("%output_grids%::%file%", string_util.macro_replace(
@@ -60,12 +52,13 @@ class Hysplit(CommandLineSimulator):
         file_suffix = output_grids[0]["%file%"]
         output_file = output_dir / f"data_{file_suffix}"
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
-        command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
-                   f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
-                   f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' ")
-        return command
+        commands = [f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
+                    f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
+                    f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' "]
+        return commands
 
     def get_results(self) -> [dict]:
+        self.logger.info(f"Fetching results")
         filename = self.get_parameter("%data_output%")
         sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%::%sampling%"))
         if Path(filename).stat().st_size == 0:
@@ -121,7 +114,7 @@ class Hysplit(CommandLineSimulator):
                 "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
                 "%span%": "0.5 0.5",
-                "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "%dir%": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
                 "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
