@@ -8,6 +8,8 @@ venv/*
 *.zip
 .DS_Store
 debug/*
+*/__pycache__/*
+__pycache__/*
 *.cfg
 CONTROL
 MESSAGE
