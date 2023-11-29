@@ -22,6 +22,7 @@ def quality_check():
     parser.add_argument("-r", "--runid", required=True, help="Run ID of the test that should be considered ground truth")
     parser.add_argument("-t", "--threadname", default="", help="Name of the thread that ran the test.")
     parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
+    parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generator data.")
     args = parser.parse_args()
     defaults = {"%output_grids%::%spacing%": "0.001 0.001",
                 "%output_grids%::%sampling%": "00 00 05",
@@ -29,8 +30,10 @@ def quality_check():
                 "%span%": "5.0 5.0"}
     logger.info(f"Name: {args.name}, Date: {args.date}, Run ID: {args.runid}")
     quality.measure_quality(
-        test_details={"name": args.name, "date": args.date, "thread_name": args.threadname, "params": defaults},
-        base_details={"name": args.name, "date": args.date, "thread_name": args.threadname, "params": defaults, "run_id": args.runid},
+        test_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
+                      "thread_name": args.threadname, "params": defaults},
+        base_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
+                      "thread_name": args.threadname, "params": defaults, "run_id": args.runid},
         base_path=args.basepath)
 
 

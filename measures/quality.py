@@ -106,8 +106,8 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
     _, file, _ = hysplit_test.get_output_paths(base_path, details["name"], 0,
-                                               details["date"], details["thread_name"])
-    file = file.parent / f"data_{file.stem}_{run_id}.txt"
+                                               details["date"], details["thread_name"], details["name_prefix"])
+    file = file.parent / f"{file.stem}_{run_id}.txt"
     config = HysplitResult(file, details["params"] if "params" in details else dict())
     return config
 

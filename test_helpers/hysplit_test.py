@@ -262,13 +262,14 @@ def set_outputs(hysplit: Hysplit, working_path: Path, output_path: Path, run_id:
     hysplit.set_parameter("%output_grids%", output_grids)
 
 
-def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str, thread_name: str = "") -> (Path, Path):
+def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str,
+                     thread_name: str = "", file_name: str = "dump") -> (Path, Path):
     working_path = Path(f"{directory}/{thread_name}").resolve()
     base_path = working_path / f"{test_name}/{suffix}"
     result_path = f"{test_name}/{suffix}"
     (working_path / result_path).mkdir(parents=True, exist_ok=True)
 
-    output_path = base_path / str(attempt) / "dump"
+    output_path = base_path / str(attempt) / file_name
     measures_path = base_path / f"runtime_measurements_{attempt}.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
