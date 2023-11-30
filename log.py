@@ -52,9 +52,7 @@ def listen(queue, setup):
 
 def configure_worker(queue, name: str = ""):
     handler = logging.handlers.QueueHandler(queue)
-    root = logging.getLogger(name)
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
-
-
-
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
