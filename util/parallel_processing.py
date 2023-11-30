@@ -28,7 +28,7 @@ def run_processes(function, params: list, process_count: int = 1, static_params:
 
 def setup_and_run(queue, bucket, static_params, run):
     process_name = current_process().name
-    log.configure_worker(queue, process_name)
+    log.configure_worker(queue)
     logger = logging.getLogger(process_name)
     logger.info(f"Process starting")
     run(bucket, static_params)
