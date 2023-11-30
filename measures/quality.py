@@ -22,7 +22,7 @@ measure_types = ["mae", "mse", "mape"]
 
 def set_logger():
     global logger
-    logger = logging.getLogger()
+    logger = logging.getLogger(current_process().name)
     logger.setLevel(logging.INFO)
 
 

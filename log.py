@@ -50,9 +50,9 @@ def listen(queue, setup):
             traceback.print_exc(file=sys.stderr)
 
 
-def configure_worker(queue):
+def configure_worker(queue, name: str = ""):
     handler = logging.handlers.QueueHandler(queue)
-    root = logging.getLogger()
+    root = logging.getLogger(name)
     root.addHandler(handler)
     root.setLevel(logging.INFO)
 
