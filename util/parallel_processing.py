@@ -15,7 +15,8 @@ def run_processes(function, params: list, process_count: int = 1, static_params:
 
     processes = list()
     for i in range(0, process_count):
-        process = Process(target=setup_and_run, name=f"Process-{i}", args=(queue, buckets[i], static_params, function))
+        process = Process(target=setup_and_run, name=f"Process-{i}", args=(queue, log.configure_worker, buckets[i],
+                                                                           static_params, function))
         process.bucket_id = i
         processes.append(process)
         process.start()
@@ -26,8 +27,8 @@ def run_processes(function, params: list, process_count: int = 1, static_params:
     log_listener.join()
 
 
-def setup_and_run(queue, bucket, static_params, run):
-    log.configure_worker(queue)
+def setup_and_run(queue, configure, bucket, static_params, run):
+    configure(queue)
     logging.info(f"Process starting")
     run(bucket, static_params)
     logging.info(f"Process complete")

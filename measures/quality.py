@@ -80,8 +80,10 @@ def prepare_test_config(test_details: dict, base_path: str):
 
 
 def measure_bucket_qualities(test_runs: list, parameters: dict):
-    set_logger()
+    if not test_runs or len(test_runs) == 0:
+        return
 
+    set_logger()
     result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
     file_util.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
 
@@ -132,9 +134,9 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
             relevant_fine_data.append(Decimal(0))
         error_row["errors"] = get_error(Decimal(row["concentration"]), relevant_fine_data, get_value)
         error_measures.append(error_row)
+        row_count += 1
         if row_count % 100000 == 0:
             logger.info(f"Row: {row_count}")
-        row_count += 1
     errors = dict()
     for measure_type in measure_types:
         errors[measure_type] = aggregate([row["errors"] for row in error_measures], measure_type)
