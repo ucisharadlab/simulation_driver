@@ -1,32 +1,27 @@
 import csv
 import os
 import shutil
-import threading
+from datetime import datetime
 from pathlib import Path
 
 import settings
-
-from decimal import *
-from datetime import datetime
-
 from simulator.simulator import CommandLineSimulator, base_dir_macro
-from util.util import FileUtil, StringUtil
+from util import file_util, string_util
 
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        working_path = self.get_absolute_path(f"./debug/hysplit_out/{threading.current_thread().name}/")
-        self.set_parameter("%working_dir%", str(working_path))
+        working_path = self.get_absolute_path(self.get_parameter("%working_dir%"))
         working_path.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
         output_dir = self.get_parameter("%output_grids%::%dir%")
-        self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir))
+        self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir) + "/")
         os.chdir(working_path)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
                 continue
             old_value = self.execution_params[param]
-            self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
+            self.execution_params[param] = string_util.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
         os.chdir(self.execution_params[base_dir_macro])
@@ -35,12 +30,12 @@ class Hysplit(CommandLineSimulator):
         control_params = self.get_parameter("%control_file%")[0]
         template_file = (self.get_absolute_path(control_params["%template_path%"])
                          / control_params["%template_file%"])
-        FileUtil.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
+        file_util.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
-    def prepare_command(self) -> str:
+    def prepare_command(self) -> [str]:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
-        self.set_parameter("%output_grids%::%file%", StringUtil.macro_replace(
+        self.set_parameter("%output_grids%::%file%", string_util.macro_replace(
             self.execution_params, self.execution_params["%output_grids%"][0]["%file%"]))
 
         output_grids = self.get_parameter("%output_grids%")
@@ -57,12 +52,13 @@ class Hysplit(CommandLineSimulator):
         file_suffix = output_grids[0]["%file%"]
         output_file = output_dir / f"data_{file_suffix}"
         self.set_parameter("%data_output%", dump_files[0] + ".txt")
-        command = (f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
-                   f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
-                   f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' ")
-        return command
+        commands = [f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
+                    f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
+                    f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' "]
+        return commands
 
     def get_results(self) -> [dict]:
+        self.logger.info(f"Fetching results")
         filename = self.get_parameter("%data_output%")
         sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%::%sampling%"))
         if Path(filename).stat().st_size == 0:
@@ -77,8 +73,7 @@ class Hysplit(CommandLineSimulator):
             for raw_line in lines:
                 line = [value.strip() for value in raw_line]
                 new_timestamp = line_timestamp = f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00"
-                row = {"timestamp": line_timestamp,
-                       "latitude": f"{line[4]}",
+                row = {"latitude": f"{line[4]}",
                        "longitude": f"{line[5]}",
                        "name": pollutant_name,
                        "concentration": line[6]}
@@ -89,8 +84,7 @@ class Hysplit(CommandLineSimulator):
                     new_timestamp = new_timestamp.replace(":00",
                                                           f":{((match_count * sampling_rate) % 60):02}")
                 previous_row = row.copy()
-                if new_timestamp != line_timestamp:
-                    row["timestamp"] = new_timestamp
+                row["timestamp"] = get_time(new_timestamp if new_timestamp != line_timestamp else line_timestamp)
                 data.append(row)
         return data
 
@@ -120,7 +114,7 @@ class Hysplit(CommandLineSimulator):
                 "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
                 "%span%": "0.5 0.5",
-                "%dir%": f"./debug/hysplit_out/default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "%dir%": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
                 "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
@@ -155,12 +149,16 @@ def remove_metrics(row: dict) -> dict:
     return row_dims
 
 
-def get_date(date_str: str) -> datetime:
+def get_time(date_str: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d %H:%M")
 
 
-def get_date_path_suffix(date_str) -> str:
-    return get_date(date_str).strftime("%Y-%m-%d_%H-%M")
+def get_date_path_suffix(date_str: str) -> str:
+    return get_date_suffix(get_time(date_str))
+
+
+def get_date_suffix(date: datetime) -> str:
+    return date.strftime("%Y-%m-%d_%H-%M")
 
 
 def get_param(name: str, value: str) -> tuple:

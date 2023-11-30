@@ -1,6 +1,6 @@
 import settings
 from driver import Driver
-from repo.edb_repo import EdbRepo, prepare_test_data_row
+from repo.edb_repo import EdbRepo
 from test_helpers.test_data import *
 
 

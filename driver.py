@@ -1,3 +1,4 @@
+import logging
 import json
 import threading
 import time
@@ -6,6 +7,9 @@ from datetime import datetime
 from plan.planner import Planner, get_planner
 from repo.edb_repo import EdbRepo
 from simulator.simulator import get_simulator
+
+
+logger = logging.getLogger("Main")
 
 
 class Driver:
@@ -18,12 +22,12 @@ class Driver:
     def run(self):
         while True:
             query_load = bundle(self.repo.get_query_load())
-            print(f"Initiating learn steps")
+            logger.info("Initiating learn steps")
             self.handle_learn_queries(query_load["learn"])
             self.handle_data_queries(query_load["data"])
-            print(f"Checking ongoing simulation statuses")
+            logger.info("Checking ongoing simulation statuses")
             self.check_simulation_statuses()
-            print("Finished cycle")
+            logger.info("Finished cycle")
             time.sleep(self.sleep_seconds)
 
     def handle_learn_queries(self, learn_queries: list):
@@ -33,7 +37,7 @@ class Driver:
 
     def handle_data_queries(self, data_queries: list):
         for query in data_queries:
-            print(f"Query: {query['id']}, setting up execution")
+            logger.info(f"Query: {query['id']}, setting up execution")
             parsed_query = parse_query(query, self.repo)
             simulator_details = self.repo.get_simulator_by_type(parsed_query["output_type"])
             if len(simulator_details.keys()) <= 0:
@@ -48,7 +52,7 @@ class Driver:
                 runtime.join()
 
     def check_simulation_statuses(self) -> int:
-        print(f"Running threads: {len(self.runtimes)}")
+        logger.info(f"Running threads: {len(self.runtimes)}")
         completed_ids = list()
         for runtime in self.runtimes:
             if runtime.is_alive():
@@ -74,12 +78,12 @@ class Driver:
         execution_info["params"] = json.loads(params, strict=False)
         simulator = get_simulator(simulator_name)
 
-        print("Running simulation")
+        logger.info("Running simulation")
         start = datetime.now()
         simulator.run(execution_info["params"])
         results = simulator.get_results()
 
-        print("Storing projected outputs and logs")
+        logger.info("Storing projected outputs and logs")
         self.repo.store_result(query["output_type"], results)
         execution_info["duration"] = (datetime.now() - start).total_seconds()
         self.repo.log(simulator_name, execution_info)

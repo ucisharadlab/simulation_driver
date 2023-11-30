@@ -6,6 +6,7 @@ from pathlib import Path
 
 HYSPLIT_PATH = "/home/username/hysplit/"
 DRIVER_SLEEP_SECONDS = 2
+LOG_FILE_PATH = "./debug/log/driver.log"
 
 assert Path(HYSPLIT_PATH).exists()
 assert (Path(HYSPLIT_PATH) / "exec").exists(), "Please pass root to Hysplit installation (should include 'exec' directory)."

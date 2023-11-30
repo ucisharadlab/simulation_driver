@@ -1,4 +1,6 @@
-import settings
+import argparse
+
+import log
 from driver import Driver
 from measures import quality
 from repo.edb_repo import EdbRepo
@@ -14,19 +16,27 @@ def test_drive(sleep_seconds):
 
 
 def quality_check():
-    defaults = {"%output_grids%::%spacing%": "0.1 0.1",
-                "%output_grids%::%sampling%": "00 00 30",
-                "%grid_center%": "35.727513, -118.786136",
-                "%span%": "180.0 360.0"}
+    parser = argparse.ArgumentParser(description="Get quality measures.")
+    parser.add_argument("-n", "--name", required=True, help="Name of the (directory of the) test run.")
+    parser.add_argument("-d", "--date", required=True, help="Datetime (yyyy-MM-dd_HH-mm) when the test was run.")
+    parser.add_argument("-r", "--runid", required=True, help="Run ID of the test that should be considered ground truth")
+    parser.add_argument("-t", "--threadname", default="", help="Name of the thread that ran the test.")
+    parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
+    parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generator data.")
+    args = parser.parse_args()
+    defaults = {"%output_grids%::%spacing%": "0.001 0.001",
+                "%output_grids%::%sampling%": "00 00 05",
+                "%grid_center%": "34.12448, -118.40778",
+                "%span%": "5.0 5.0"}
+    logger.info(f"Name: {args.name}, Date: {args.date}, Run ID: {args.runid}")
     quality.measure_quality(
-        test_details={"name": "sampling", "date": "2023-09-14 04:44", "params": defaults},
-        base_details={"name": "sampling", "date": "2023-09-14 04:44", "params": defaults, "run_id": 120})
+        test_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
+                      "thread_name": args.threadname, "params": defaults},
+        base_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
+                      "thread_name": args.threadname, "params": defaults, "run_id": args.runid},
+        base_path=args.basepath)
 
 
 if __name__ == '__main__':
-    test_drive(settings.DRIVER_SLEEP_SECONDS)
-    # quality_check()
-    # coinciding_points_check()
-
-    # hysplit_test.grid_test(False)  # full run
-    # hysplit_test.grid_test(True)  # fast run
+    log.init()
+    quality_check()

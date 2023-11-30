@@ -1,5 +1,6 @@
-import os
+import logging
 from pathlib import Path
+from subprocess import Popen, PIPE, STDOUT
 
 from util import reflection_util
 
@@ -8,6 +9,7 @@ class Simulator:
     def __init__(self, params: dict = None):
         self.execution_params = dict()
         self.set_defaults(params)
+        self.logger = logging.getLogger()
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
@@ -37,7 +39,7 @@ class Simulator:
         self.execution_params[outer_key][0][inner_key] = value
 
     def set_parameters(self, params: dict) -> None:
-        if params is None or len(params) < 1:
+        if not params:
             return
         for key in params.keys():
             self.set_parameter(key, params[key])
@@ -70,11 +72,19 @@ class Simulator:
 
 class CommandLineSimulator(Simulator):
     def simulate(self) -> None:
-        command = self.prepare_command()
-        print(f"Executing command: {command}")
-        os.system(command)
+        commands = self.prepare_command()
+        for command in commands:
+            self.logger.info(f"In directory: {Path().resolve()}, executing command: {command}")
+            process = Popen(command, stdout=PIPE, stderr=STDOUT, text=True, shell=True)
+            with process.stdout:
+                for line in iter(process.stdout.readline, b''):
+                    if not line:
+                        break
+                    self.logger.info(line.rstrip())
+            process.wait()
+        self.logger.info("Completed execution")
 
-    def prepare_command(self) -> str:
+    def prepare_command(self) -> [str]:
         raise NotImplementedError()
 
     def get_results(self) -> [dict]:

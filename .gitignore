@@ -3,10 +3,13 @@ examples/*
 lcp/*
 lcp\ copy/*
 venv/*
+.venv/*
 *.png
 *.zip
 .DS_Store
 debug/*
+*/__pycache__/*
+__pycache__/*
 *.cfg
 CONTROL
 MESSAGE
@@ -14,3 +17,4 @@ VMSDIST
 WARNING
 settings.py
 CON2ASC.OUT
+ASCDATA.CFG

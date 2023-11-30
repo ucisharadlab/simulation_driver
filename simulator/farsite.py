@@ -1,9 +1,11 @@
-import geopandas as gpd
 import os
+
+import geopandas as gpd
 from shapely.geometry import Point, Polygon
 
-from simulator.simulator import CommandLineSimulator, Simulator
-from util.util import FileUtil, StringUtil
+import util.file_util as files
+import util.string_util as strings
+from simulator.simulator import CommandLineSimulator
 
 
 def check_distance(cell, surface):
@@ -28,7 +30,7 @@ def get_fire_mapping(surface, points_grid, save_path):
 def get_points_grid(coordinates: tuple, unit: int):
     points_grid = list()
     x_min, y_min, x_max, y_max = coordinates[0][0], coordinates[0][1], \
-                                 coordinates[1][0], coordinates[1][1]
+        coordinates[1][0], coordinates[1][1]
     for y in range(y_min + unit, y_max + unit, unit):
         row = list()
         for x in range(x_min + unit, x_max + unit, unit):
@@ -81,11 +83,11 @@ class FarSite(CommandLineSimulator):
         })
         for param in self.execution_params.keys():
             old_value = self.execution_params[param]
-            self.execution_params[param] = StringUtil.macro_replace(self.execution_params, old_value)
+            self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
         self.generate_input_files()
 
-    def prepare_command(self) -> str:
-        return f'{self.get_parameter("%base_path%")}/src/TestFARSITE {self.get_parameter("%run_file%")} 2>&1 '
+    def prepare_command(self) -> [str]:
+        return [f'{self.get_parameter("%base_path%")}/src/TestFARSITE {self.get_parameter("%run_file%")} 2>&1 ']
 
     def get_results(self) -> [dict]:
         generate_cell_mapping(self.get_parameter("%fire_perimeters_file%"),
@@ -95,13 +97,13 @@ class FarSite(CommandLineSimulator):
 
     def generate_input_files(self) -> str:
         # TODO: Refactor to remove execution params from method call
-        self.set_parameter("%input_file_name%", FileUtil.generate_file(
+        self.set_parameter("%input_file_name%", files.generate_file(
             self.get_parameter("%input_file_template%"),
             self.get_parameter("%input_file_name_template%"),
             self.get_parameter("%input_file%"),
             self.execution_params))
         self.set_parameter("%output_path%", self.create_output_path())
-        return FileUtil.generate_file(
+        return files.generate_file(
             self.get_parameter("%run_file_template%"),
             self.get_parameter("%run_file_name_template%"),
             self.get_parameter("%run_file%"),
@@ -109,6 +111,6 @@ class FarSite(CommandLineSimulator):
 
     def create_output_path(self) -> str:
         output_path = self.get_parameter("%preset_output_path%")
-        output_path = FileUtil.sanitise_filename(StringUtil.macro_replace(self.execution_params, output_path))
-        FileUtil.create_path(output_path)
+        output_path = files.sanitise_filename(strings.macro_replace(self.execution_params, output_path))
+        files.create_path(output_path)
         return output_path
