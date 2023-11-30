@@ -28,4 +28,6 @@ def run_processes(function, params: list, process_count: int = 1, static_params:
 
 def setup_and_run(queue, bucket, static_params, run):
     log.configure_worker(queue)
+    logging.info(f"Process starting")
     run(bucket, static_params)
+    logging.info(f"Process complete")

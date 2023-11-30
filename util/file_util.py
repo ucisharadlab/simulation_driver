@@ -1,3 +1,4 @@
+import csv
 import os
 from pathlib import Path
 
@@ -45,9 +46,11 @@ def merge(paths: [Path], merged_file: Path, headers: bool = True) -> None:
     header_written = False
     with merged_file.open("a+") as full_file:
         for path in paths:
+            if (not path.exists()) or path.stat().st_size == 0:
+                continue
             with path.open("r") as part_file:
                 first_line = part_file.readline()
-                if (not header_written) and headers:
+                if headers and not header_written:
                     full_file.write(first_line)
                     header_written = True
                 full_file.write(part_file.read())
@@ -60,7 +63,7 @@ def write_line(file_path: Path, text: str) -> None:
 
 
 def write_list_to_line(file_path: Path, content: list, column_delimiter: str = string_util.comma) -> None:
-    write_line(file_path, column_delimiter.join(content))
+    write_line(file_path, column_delimiter.join([str(value) for value in content]))
 
 
 def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
@@ -72,3 +75,9 @@ def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
 def write_json(file_path: Path, data, mode: str = "w") -> None:
     with file_path.open(mode) as file:
         json.dump(data, file)
+
+
+def write_csv(file_path: Path, data, delimiter: str = ",", mode: str = "w") -> None:
+    with file_path.open(mode) as file:
+        writer = csv.writer(file, delimiter=delimiter)
+        writer.writerows(data)

@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 from _decimal import Decimal
+from datetime import datetime
 from multiprocessing import current_process
 from pathlib import Path
 
@@ -80,28 +81,32 @@ def prepare_test_config(test_details: dict, base_path: str):
 
 def measure_bucket_qualities(test_runs: list, parameters: dict):
     set_logger()
-    logger.info("Starting: %s", current_process().name)
 
     result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
-    file_util.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types))
+    file_util.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
 
     for run in test_runs:
         run_details = run["details"]
         run_id = run_details["run_id"]
-        logger.info("Comparing run: %s", run_id)
+        logger.info(f"Comparing run: {run_id}")
         run["config"].fetch_results()
         try:
+            start = datetime.now()
             error_aggregates, errors = compute_errors(run["config"], parameters["base_config"],
                                                       lambda v, r: interpolate(run_details.keys(), v, r))
+            run_details["quality_time"] = (datetime.now() - start).total_seconds()
+            logger.info(f"Duration: {run_details['quality_time']} seconds")
+
+            error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
+            run_details.update(error_measures)
+            file_util.write_list_to_line(result_path, run_details.values())
+            errors_file = result_path.parent / f"errors_run_{run_id}.json"
+            file_util.write_json(errors_file, errors)
+            logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
             logger.exception(e, exc_info=True)
             continue
-
-        error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
-        run_details.update(error_measures)
-        file_util.write_list_to_line(result_path, run_details.values())
-        file_util.write_json(result_path.parent / f"errors_run_{run_id}.txt", errors)
 
 
 def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResult:
@@ -129,7 +134,6 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         error_measures.append(error_row)
         if row_count % 100000 == 0:
             logger.info(f"Row: {row_count}")
-            logger.info(f"Relevant data size: {len(relevant_fine_data)}")
         row_count += 1
     errors = dict()
     for measure_type in measure_types:
