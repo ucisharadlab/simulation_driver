@@ -103,7 +103,9 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             run_details.update(error_measures)
             file_util.write_list_to_line(result_path, run_details.values())
             errors_file = result_path.parent / f"errors_run_{run_id}.json"
-            file_util.write_json(errors_file, errors)
+            error_rows = [row.values() for row in errors]
+            error_rows.insert(0, list(errors[0].keys()))
+            file_util.write_csv(errors_file, errors)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
