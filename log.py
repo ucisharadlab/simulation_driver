@@ -5,7 +5,7 @@ from pathlib import Path
 
 import settings
 
-log_format = "%(asctime)s %(processName)s %(name)s %(levelname)s: %(message)s"
+log_format = "%(asctime)s %(processName)s %(module)s %(levelname)s: %(message)s"
 
 
 def init():
@@ -56,3 +56,4 @@ def configure_worker(queue, name: str = ""):
     if not logger.handlers:
         logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+    logger.propagate = False

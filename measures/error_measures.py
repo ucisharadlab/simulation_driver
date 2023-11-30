@@ -4,7 +4,7 @@ import statistics
 from _decimal import Decimal
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def get_error(coarse_value: Decimal, dataset: [Decimal], interpolate) -> dict:

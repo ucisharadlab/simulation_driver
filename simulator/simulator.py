@@ -9,7 +9,7 @@ class Simulator:
     def __init__(self, params: dict = None):
         self.execution_params = dict()
         self.set_defaults(params)
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger()
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
