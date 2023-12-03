@@ -10,7 +10,7 @@ from simulator import hysplit
 from simulator.hysplit import Hysplit
 from test_helpers import hysplit_test
 from test_helpers.hysplit_test import bucket_macro
-from util import file_util
+from util import files
 from util.parallel_processing import run_processes
 
 logger = logging.getLogger()
@@ -63,7 +63,7 @@ def measure_quality(test_details: dict, base_details: dict, process_count: int =
     for i in range(0, process_count):
         measure_files.append(Path(str(measures_path).replace(bucket_macro, str(i))))
     merged_file = Path(measures_path_str.replace(f"_{bucket_macro}", ""))
-    file_util.merge(measure_files, merged_file)
+    files.merge(measure_files, merged_file)
     logger.info(f"Written to: {merged_file}")
 
 
@@ -85,12 +85,12 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
     set_logger()
     result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
-    file_util.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
+    files.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
 
-    for run in test_runs:
+    for i, run in enumerate(test_runs):
         run_details = run["details"]
         run_id = run_details["run_id"]
-        logger.info(f"Comparing run: {run_id}")
+        logger.info(f"({i}/{len(test_runs)}) Comparing run: {run_id}")
         run["config"].fetch_results()
         try:
             start = datetime.now()
@@ -101,11 +101,11 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
             error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
             run_details.update(error_measures)
-            file_util.write_list_to_line(result_path, run_details.values())
+            files.write_list_to_line(result_path, run_details.values())
             errors_file = result_path.parent / f"errors_run_{run_id}.json"
             error_rows = [row.values() for row in errors]
             error_rows.insert(0, list(errors[0].keys()))
-            file_util.write_csv(errors_file, errors)
+            files.write_csv(errors_file, errors)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
@@ -132,8 +132,6 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         relevant_fine_data = [Decimal(row["concentration"]) for row in
                               get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
         error_row["fine_data"] = relevant_fine_data
-        if len(relevant_fine_data) == 0:
-            relevant_fine_data.append(Decimal(0))
         error_row["errors"] = get_error(Decimal(row["concentration"]), relevant_fine_data, get_value)
         error_measures.append(error_row)
         row_count += 1
@@ -187,7 +185,15 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
                     and check_bounds(Decimal(fine_row["longitude"]), longitude_bounds)):
                 continue
             relevant_data.append(fine_row)
+
+    if len(relevant_data) == 0:
+        relevant_data.append(Decimal(-1))
     return relevant_data
+
+
+def plot_measures(measures_path: str, variable: str):
+
+    pass
 
 
 def get_width(width: str) -> Decimal:
@@ -213,3 +219,7 @@ def interpolate(params: [str], value: Decimal, rows: [Decimal]) -> Decimal:
         if key in params:
             new_value = interpolations[key](new_value, rows)
     return new_value
+
+
+def recalculate():
+    pass

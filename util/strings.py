@@ -1,3 +1,5 @@
+from datetime import datetime
+
 comma = ","
 tab = "\t"
 underscore = "_"
@@ -29,3 +31,7 @@ def collate(items, separator: str = "\n") -> str:
     if type(next(iter(items), None)) is not dict:
         return separator.join(items)
     return separator.join([separator.join(item.values()) for item in items])
+
+
+def get_date_str(date: datetime = datetime.now()):
+    return date.strftime("%Y-%m-%d_%H-%M")

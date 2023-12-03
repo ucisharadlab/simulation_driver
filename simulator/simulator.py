@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
 
-from util import reflection_util
+from util import reflection
 
 
 class Simulator:
@@ -103,7 +103,7 @@ class NoopSimulator(CommandLineSimulator):
 
 
 def get_simulator(full_class_name: str) -> Simulator:
-    return reflection_util.get_instance(full_class_name)
+    return reflection.get_instance(full_class_name)
 
 
 def get_split_keys(composite_key: str) -> (str, str):

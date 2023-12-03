@@ -4,8 +4,7 @@ from pathlib import Path
 
 import simplejson as json
 
-from util import string_util
-from util.string_util import *
+from util.strings import *
 
 
 def generate_file(template_file: Path, name_template: str, output_path: str, settings: dict):
@@ -62,7 +61,7 @@ def write_line(file_path: Path, text: str) -> None:
         file.flush()
 
 
-def write_list_to_line(file_path: Path, content: list, column_delimiter: str = string_util.comma) -> None:
+def write_list_to_line(file_path: Path, content: list, column_delimiter: str = comma) -> None:
     write_line(file_path, column_delimiter.join([str(value) for value in content]))
 
 
@@ -81,3 +80,9 @@ def write_csv(file_path: Path, data, delimiter: str = ",", mode: str = "w") -> N
     with file_path.open(mode) as file:
         writer = csv.writer(file, delimiter=delimiter)
         writer.writerows(data)
+
+
+def get_files_like(path: Path, name_pattern: str) -> [Path]:
+    contents = path.glob(name_pattern)
+    measure_files = [c for c in contents if c.is_file()]
+    return measure_files

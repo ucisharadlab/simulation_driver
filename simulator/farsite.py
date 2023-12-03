@@ -3,9 +3,8 @@ import os
 import geopandas as gpd
 from shapely.geometry import Point, Polygon
 
-import util.file_util as files
-import util.string_util as strings
 from simulator.simulator import CommandLineSimulator
+from util import files, strings
 
 
 def check_distance(cell, surface):

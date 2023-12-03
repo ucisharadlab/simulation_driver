@@ -6,7 +6,7 @@ from pathlib import Path
 
 import settings
 from simulator.simulator import CommandLineSimulator, base_dir_macro
-from util import file_util, string_util
+from util import strings
 
 
 class Hysplit(CommandLineSimulator):
@@ -21,7 +21,7 @@ class Hysplit(CommandLineSimulator):
             if param == "%keys_with_count%":
                 continue
             old_value = self.execution_params[param]
-            self.execution_params[param] = string_util.macro_replace(self.execution_params, old_value)
+            self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
         os.chdir(self.execution_params[base_dir_macro])
@@ -30,12 +30,12 @@ class Hysplit(CommandLineSimulator):
         control_params = self.get_parameter("%control_file%")[0]
         template_file = (self.get_absolute_path(control_params["%template_path%"])
                          / control_params["%template_file%"])
-        file_util.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
+        file.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
     def prepare_command(self) -> [str]:
         for key in self.get_parameter("%keys_with_count%"):
             self.add_count(key)
-        self.set_parameter("%output_grids%::%file%", string_util.macro_replace(
+        self.set_parameter("%output_grids%::%file%", strings.macro_replace(
             self.execution_params, self.execution_params["%output_grids%"][0]["%file%"]))
 
         output_grids = self.get_parameter("%output_grids%")
@@ -132,8 +132,10 @@ class Hysplit(CommandLineSimulator):
 
 
 def get_sampling_rate_mins(sampling: str) -> int:
-    sampling_param = sampling.split('\n')[-1]
-    days, hours, minutes = sampling_param.split(' ')
+    sampling_param = sampling.split('\n')[-1].split(" ")
+    days = int(sampling_param[0]) if len(sampling_param) == 3 else 0
+    hours = int(sampling_param[-2])
+    minutes = int(sampling_param[-1])
     return 24 * 60 * int(days) + 60 * int(hours) + int(minutes)
 
 

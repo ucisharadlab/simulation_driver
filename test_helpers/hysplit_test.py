@@ -7,7 +7,7 @@ from pathlib import Path
 
 from simulator.hysplit import Hysplit
 from test_helpers.test_data import slow_params
-from util import string_util as strings, range_util as ranges
+from util import strings, ranges
 
 logger = logging.getLogger()
 
