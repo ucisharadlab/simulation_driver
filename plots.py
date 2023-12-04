@@ -104,7 +104,7 @@ def plot_qualities(config: dict, results_base_name: str = "measures",
         plotlib.savefig(str(plot_path / f"{x_measure.lower()}_{y_measure.lower()}_{suffix}.{ext}"))
 
 
-bbox = (1.05, 1.00)
+bbox = (0.95, 1.0)
 
 
 def plot_measures(durations_file: str, errors_file: str):
@@ -129,26 +129,31 @@ def plot_measures(durations_file: str, errors_file: str):
     measures = measures.drop(["total_run_time"], axis=1).groupby(group_by_columns, as_index=False).mean().reset_index()
 
     measures = measures.loc[(measures["Spacing"] != 0.001)]
+    measures = measures.rename({"rmse": "RMSE", "duration_s": "Duration (seconds)",
+                                "Spacing": "Spacing (degrees)", "Sampling Rate": "Sampling Rate (minutes)"}, axis=1)
 
     # , "rmse", "smape_ignore_missing"]]
-    plot_details = [("Spacing", "Sampling Rate"), ("Sampling Rate", "Spacing")]
-    metrics_needed = {("mae", "duration_s"): [("mae", "duration_s"),
-                                ("mae_zscore", "duration_s_zscore")],
-                      # ("smape_ignore_missing", "duration_s"): [("smape_ignore_missing", "duration_s"),
-                      #                                          ("smape_ignore_missing_zscore", "duration_s_zscore")],
-                      # ("rmse", "duration_s"): [("rmse", "duration_s"),
-                      #                          ("rmse_zscore", "duration_s_zscore")]
-                      }
+    plot_details = [("Spacing (degrees)", "Sampling Rate (minutes)"), ("Sampling Rate (minutes)", "Spacing (degrees)")]
+    metrics_needed = {
+        # ("mae", "duration_s"): [("mae", "duration_s"),
+        #                         ("mae_zscore", "duration_s_zscore")],
+        # ("smape_ignore_missing", "duration_s"): [("smape_ignore_missing", "duration_s"),
+        #                                          ("smape_ignore_missing_zscore", "duration_s_zscore")],
+        # ("smape", "duration_s"): [("smape", "duration_s"),
+        #                           ("smape Z-Score", "duration Z-Score)],
+        ("RMSE", "Duration (seconds)"): [("RMSE", "Duration (seconds)"),
+                                 ("RMSE Z-Score", "Duration (seconds) Z-Score")]
+    }
     for variable, group in plot_details:
         for base_metrics, columns in metrics_needed.items():
             for column in columns:
                 calculate_measure(measures, variable, group, base_metrics[0], base_metrics[1],
                                   column[0], column[1], base_path=base_path)
-        for metric in {item for sublist in metrics_needed.keys() for item in sublist}:
-            calculate_measure(measures, variable, group, variable, metric,
-                              variable, metric, x_avg=False, base_path=base_path)
-            calculate_measure(measures, variable, group, variable, metric,
-                              variable, metric + "_zscore", x_avg=False, base_path=base_path)
+        # for metric in {item for sublist in metrics_needed.keys() for item in sublist}:
+        #     calculate_measure(measures, variable, group, variable, metric,
+        #                       variable, metric, x_avg=False, base_path=base_path)
+        #     calculate_measure(measures, variable, group, variable, metric,
+        #                       variable, metric + " Z-Score", x_avg=False, base_path=base_path)
 
     # metrics_needed = ["duration_s", "mae", "duration_s_zscore", "mae_zscore"]
     # for variable, group in plot_details:
@@ -170,45 +175,48 @@ def calculate_measure(dataframe: DataFrame, variable: str, group: str, x_metric:
     if x_metric not in subset: subset.append(x_metric)
     if y_metric not in subset: subset.append(y_metric)
     measures = dataframe[subset].drop_duplicates()
-    measures = calculate_z_scores(measures, x_metric, group)
-    measures = calculate_z_scores(measures, y_metric, group)
-    y_zscore = f"{y_metric}_zscore"
-    x_zscore = f"{x_metric}_zscore"
+    if x_avg: measures = calculate_z_scores(measures, x_metric, group)
+    if y_avg: measures = calculate_z_scores(measures, y_metric, group)
+    y_zscore = f"{y_metric} Z-Score"
+    x_zscore = f"{x_metric} Z-Score"
     measures[group] = measures[group].apply(lambda x: Decimal(x))
-    # average_cols = [variable]
-    # if x_avg: average_cols.append(x_metric)
-    # if y_avg: average_cols.append(y_metric)
-    # averages = measures[average_cols]
-    # averages = averages.drop_duplicates()
-    # averages = averages.groupby(variable, as_index=False).agg("mean")
-    # averages[group] = -1
-    # rename_columns = {}
-    # if x_avg:
-    #     rename_columns[f"{x_metric}_mean"] = x_metric
-    # if y_avg:
-    #     rename_columns[f"{y_metric}_mean"] = y_metric
-    # averages = averages.rename(columns=rename_columns)
-    # measures = pd.concat([measures, averages])
+    average_cols = [variable]
+    if x_avg: average_cols.append(x_metric)
+    if y_avg: average_cols.append(y_metric)
+    averages = measures[average_cols]
+    averages = averages.drop_duplicates()
+    averages = averages.groupby(variable, as_index=False).agg("mean")
+    averages[group] = -1
+    rename_columns = {}
+    if x_avg:
+        rename_columns[f"{x_metric}_mean"] = x_metric
+    if y_avg:
+        rename_columns[f"{y_metric}_mean"] = y_metric
+    averages = averages.rename(columns=rename_columns)
+    measures = pd.concat([measures, averages])
 
-    temp_palette = [color + (0.4,) for color in
-                                    sns.color_palette(['grey'], len(measures[group].unique()))]
+    temp_palette = [get_color()] + [color + (0.4,) for color in
+                                    sns.color_palette(['grey'], len(measures[group].unique()) - 1)]
     x_measure = x_zscore if not x_column else x_column
     y_measure = y_zscore if not y_column else y_column
 
     # line_styles = {value: ((4, 2) if int(value) != -1 else (None, None)) for value in measures[group].values}
-    ax = sns.lineplot(x=x_measure, y=y_measure, hue=group, data=measures, estimator="mean", errorbar='sd', palette=temp_palette)  # .sort_values(x_measure),
-                      # style=group)  #, dashes=line_styles, )
+    ax = sns.lineplot(x=x_measure, y=y_measure, hue=group, data=measures,
+                      palette=temp_palette)  # .sort_values(x_measure),
+    # style=group)  #, dashes=line_styles, )
+    # plot = sns.relplot(kind="line", data=measures, x=x_measure, y=y_measure, estimator="mean", legend="full", label="Average")
+    # ax.map_dataframe(sns.lineplot, x=x_measure, y=y_measure, color=("grey", 0.75), hue=group, data=measures)
     labels = list()
     handles = ax.legend().legend_handles
     for handle in ax.legend().legend_handles:
         label = "%.3g" % Decimal(handle.get_label())
         labels.append(label if int(Decimal(label)) != -1 else "Average")
     ax.set_title(variable)
-    ax.legend(handles, labels, loc="upper right", bbox_to_anchor=bbox, title=group)
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=bbox, title=group, framealpha=0.4)
     save_path = base_path / f"{variable}_{x_measure}_{y_measure}.pdf"
     plotlib.savefig(str(save_path))
     plotlib.show()
-    measures = measures.drop([y_metric + "_zscore", x_metric + "_zscore"], axis=1)
+    measures = measures.drop([y_metric + " Z-Score", x_metric + " Z-Score"], axis=1, errors="ignore")
     return measures.loc[measures[group] != -1]
 
 
@@ -224,7 +232,7 @@ def calculate_z_scores(dataframe: DataFrame, measure_name: str, group_by: str) -
     measures = dataframe.groupby(group_by, as_index=False).agg({measure_name: ["mean", "std"]})
     measures.columns = [level1 + ('_' + level2 if level2 else "") for level1, level2 in measures.columns]
     dataframe = dataframe.merge(measures, on=group_by)
-    dataframe[f"{measure_name}_zscore"] = ((dataframe[measure_name] - dataframe[f"{measure_name}_mean"])
+    dataframe[f"{measure_name} Z-Score"] = ((dataframe[measure_name] - dataframe[f"{measure_name}_mean"])
                                            / dataframe[f"{measure_name}_std"])
 
     dataframe = dataframe.drop([measure_name + "_mean", measure_name + "_std"], axis=1)
