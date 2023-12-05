@@ -1,15 +1,15 @@
 import argparse
 
 import log
-import plots
+import settings
 from driver import Driver
-from measures import quality
+from measures import quality, quality_plot
 from repo.edb_repo import EdbRepo
 from test_helpers.hysplit_test import *
 from util import files
 
 
-def test_drive(sleep_seconds):
+def test_drive(sleep_seconds = settings.DRIVER_SLEEP_SECONDS):
     repo = EdbRepo()
     simulation_driver = Driver(repo, sleep_seconds)
     simulation_driver.set_planner("hysplit", "plan.planner.GreedyPlanner",
@@ -21,7 +21,8 @@ def quality_check():
     parser = argparse.ArgumentParser(description="Get quality measures.")
     parser.add_argument("-n", "--name", required=True, help="Name of the (directory of the) test run.")
     parser.add_argument("-d", "--date", required=True, help="Datetime (yyyy-MM-dd_HH-mm) when the test was run.")
-    parser.add_argument("-r", "--runid", required=True, help="Run ID of the test that should be considered ground truth")
+    parser.add_argument("-r", "--runid", required=True,
+                        help="Run ID of the test that should be considered ground truth")
     parser.add_argument("-t", "--threadname", default="", help="Name of the thread that ran the test.")
     parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
     parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generator data.")
@@ -54,22 +55,13 @@ def collate_measures():
     files.merge(measure_files, measures_path / "measures_merged.csv")
 
 
+def plot_qualities():
+    summary_file = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/errors_summary.csv")
+    quality_plot.plot_measures("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/measures_merged.csv",
+                               str(summary_file), False)
+
+
 if __name__ == '__main__':
     log.init()
-    # 852,
-    # compute.recompute_errors(Path("/Users/sriramrao/code/simulation/simulation_driver/debug/test/errors_run_63.json"),
-    #                          Path("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/errors_summary.csv"))
-    summary_file = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/errors_summary.csv")
-    # csv_files = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/errors_run_*.csv")
-
-    # util.parallel_processing.run_processes(compute.batch_recompute, csv_files,
-    #                                        process_count=multiprocessing.cpu_count() - 2,
-    #                                        static_params={"summary_file": summary_file})
-    # files.merge(files.get_files_like(summary_file.parent, summary_file.stem + "_*" + summary_file.suffix),
-    #             summary_file)
-
-    plots.plot_measures("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/measures_merged.csv",
-                        str(summary_file))
-    # collate_measures()
-    # quality_check()
-
+    grid_test()
+    # driver_data_queries_test()

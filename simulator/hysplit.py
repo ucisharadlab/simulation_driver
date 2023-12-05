@@ -11,7 +11,7 @@ from util import strings
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        working_path = self.get_absolute_path(self.get_parameter("%working_dir%"))
+        working_path = self.get_absolute_path(self.get_parameter(base_dir_macro))
         working_path.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
         output_dir = self.get_parameter("%output_grids%::%dir%")

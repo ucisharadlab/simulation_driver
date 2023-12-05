@@ -15,7 +15,6 @@ from pandas import DataFrame
 
 import util.files
 from simulator import hysplit
-from util import strings
 
 
 def get_rows(full_path: str) -> list:
@@ -104,35 +103,13 @@ def plot_qualities(config: dict, results_base_name: str = "measures",
         plotlib.savefig(str(plot_path / f"{x_measure.lower()}_{y_measure.lower()}_{suffix}.{ext}"))
 
 
-bbox = (0.95, 1.0)
+def sanitize(text: str) -> str:
+    return text.replace(" ", "_").replace("(", "").replace(")", "")
 
 
-def plot_measures(durations_file: str, errors_file: str):
-    base_path = Path("./debug/hysplit_out/plots/measures/" + strings.get_date_str()).resolve()
-    base_path.mkdir(parents=True, exist_ok=True)
-    sns.set_theme()
-    durations = pd.read_csv(durations_file)
-    durations["Spacing"] = durations.apply(
-        lambda row: float(row["output_grids::spacing"].split(" ")[0]), axis=1).astype(float)
-    durations["Sampling Rate"] = durations.apply(
-        lambda row: hysplit.get_sampling_rate_mins(row["output_grids::sampling"]), axis=1).astype(int)
-    durations = durations.drop(["mae", "mse", "mape", "attempt_id",
-                                "output_grids::sampling", "output_grids::spacing"], axis=1)
-    group_by_columns = durations.columns.tolist()
-    group_by_columns.remove("duration_s")
-    group_by_columns.remove("run_id")
-    durations = durations.groupby(group_by_columns, as_index=False).agg({"duration_s": "mean", "run_id": "min"})
-
-    errors = pd.read_csv(errors_file).drop_duplicates()
-    measures = pd.merge(durations, errors, how="outer", on=["run_id"])
-    group_by_columns.remove("total_run_time")
-    measures = measures.drop(["total_run_time"], axis=1).groupby(group_by_columns, as_index=False).mean().reset_index()
-
-    measures = measures.loc[(measures["Spacing"] != 0.001)]
-    measures = measures.rename({"rmse": "RMSE", "duration_s": "Duration (seconds)",
-                                "Spacing": "Spacing (degrees)", "Sampling Rate": "Sampling Rate (minutes)"}, axis=1)
-
-    # , "rmse", "smape_ignore_missing"]]
+def calculate_measure2(dataframe: DataFrame, variable: str, group: str, x_metric: str, y_metric: str,
+                       x_column: str = None, y_column: str = None,
+                       x_avg: bool = True, y_avg: bool = True, base_path: Path = Path()):
     plot_details = [("Spacing (degrees)", "Sampling Rate (minutes)"), ("Sampling Rate (minutes)", "Spacing (degrees)")]
     metrics_needed = {
         # ("mae", "duration_s"): [("mae", "duration_s"),
@@ -142,41 +119,15 @@ def plot_measures(durations_file: str, errors_file: str):
         # ("smape", "duration_s"): [("smape", "duration_s"),
         #                           ("smape Z-Score", "duration Z-Score)],
         ("RMSE", "Duration (seconds)"): [("RMSE", "Duration (seconds)"),
-                                 ("RMSE Z-Score", "Duration (seconds) Z-Score")]
+                                         ("RMSE Z-Score", "Duration (seconds) Z-Score")]
     }
-    for variable, group in plot_details:
-        for base_metrics, columns in metrics_needed.items():
-            for column in columns:
-                calculate_measure(measures, variable, group, base_metrics[0], base_metrics[1],
-                                  column[0], column[1], base_path=base_path)
-        # for metric in {item for sublist in metrics_needed.keys() for item in sublist}:
-        #     calculate_measure(measures, variable, group, variable, metric,
-        #                       variable, metric, x_avg=False, base_path=base_path)
-        #     calculate_measure(measures, variable, group, variable, metric,
-        #                       variable, metric + " Z-Score", x_avg=False, base_path=base_path)
 
-    # metrics_needed = ["duration_s", "mae", "duration_s_zscore", "mae_zscore"]
-    # for variable, group in plot_details:
-    #     for metric in metrics_needed:
-    #         measures = calculate_z_scores(measures, "mae", group)
-    #         measures = calculate_z_scores(measures, "duration_s", group)
-    #         sns.lineplot(x=variable, y=metric, hue=group, data=measures.sort_values(variable),
-    #                      palette=seaborn.color_palette("colorblind")).set_title(variable)
-    #         plotlib.legend(loc="upper right", bbox_to_anchor=bbox, title=group)
-    #         save_path = base_path / f"{variable}_{metric}.pdf"
-    #         plotlib.savefig(str(save_path))
-    #         plotlib.show()
-
-
-def calculate_measure(dataframe: DataFrame, variable: str, group: str, x_metric: str, y_metric: str,
-                      x_column: str = None, y_column: str = None,
-                      x_avg: bool = True, y_avg: bool = True, base_path: Path = Path()):
     subset = [variable, group]
     if x_metric not in subset: subset.append(x_metric)
     if y_metric not in subset: subset.append(y_metric)
     measures = dataframe[subset].drop_duplicates()
-    if x_avg: measures = calculate_z_scores(measures, x_metric, group)
-    if y_avg: measures = calculate_z_scores(measures, y_metric, group)
+    if x_avg: measures = calculate_z_score(measures, x_metric, group)
+    if y_avg: measures = calculate_z_score(measures, y_metric, group)
     y_zscore = f"{y_metric} Z-Score"
     x_zscore = f"{x_metric} Z-Score"
     measures[group] = measures[group].apply(lambda x: Decimal(x))
@@ -212,12 +163,15 @@ def calculate_measure(dataframe: DataFrame, variable: str, group: str, x_metric:
         label = "%.3g" % Decimal(handle.get_label())
         labels.append(label if int(Decimal(label)) != -1 else "Average")
     ax.set_title(variable)
-    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=bbox, title=group, framealpha=0.4)
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.95, 1.0), title=group, framealpha=0.4)
     save_path = base_path / f"{variable}_{x_measure}_{y_measure}.pdf"
     plotlib.savefig(str(save_path))
     plotlib.show()
     measures = measures.drop([y_metric + " Z-Score", x_metric + " Z-Score"], axis=1, errors="ignore")
     return measures.loc[measures[group] != -1]
+
+
+# ax.set(xlabel='x-axis label', ylabel='y-axis label')
 
 
 def get_color():
@@ -228,15 +182,19 @@ def get_decimal(value) -> Decimal:
     return Decimal(value)
 
 
-def calculate_z_scores(dataframe: DataFrame, measure_name: str, group_by: str) -> DataFrame:
+def calculate_z_score(dataframe: DataFrame, measure_name: str, group_by: str) -> DataFrame:
     measures = dataframe.groupby(group_by, as_index=False).agg({measure_name: ["mean", "std"]})
     measures.columns = [level1 + ('_' + level2 if level2 else "") for level1, level2 in measures.columns]
     dataframe = dataframe.merge(measures, on=group_by)
     dataframe[f"{measure_name} Z-Score"] = ((dataframe[measure_name] - dataframe[f"{measure_name}_mean"])
-                                           / dataframe[f"{measure_name}_std"])
+                                            / dataframe[f"{measure_name}_std"])
 
     dataframe = dataframe.drop([measure_name + "_mean", measure_name + "_std"], axis=1)
     return dataframe
+
+
+def calculate_relative_metric(dataframe: DataFrame, metric: str, dimension: str) -> DataFrame:
+    pass
 
 
 def scale_measure(dataframe: DataFrame, measure_name: str):
@@ -250,3 +208,17 @@ def scale_measure(dataframe: DataFrame, measure_name: str):
     # dataframe["max_diff"] = dataframe.groupby(columns, as_index=False)[diff_measure].transform("max")
     # dataframe[f"scaled_{measure_name}"] = dataframe[diff_measure] / dataframe["max_diff"]
     return dataframe
+
+
+def plot_metrics(measures, plot_details, base_path):
+    metrics_needed = ["duration_s", "mae", "duration_s_zscore", "mae_zscore"]
+    for variable, group in plot_details:
+        for metric in metrics_needed:
+            measures = calculate_z_score(measures, "mae", group)
+            measures = calculate_z_score(measures, "duration_s", group)
+            sns.lineplot(x=variable, y=metric, hue=group, data=measures.sort_values(variable),
+                         palette=seaborn.color_palette("colorblind")).set_title(variable)
+            plotlib.legend(loc="upper right", bbox_to_anchor=(0.95, 1.0), title=group)
+            save_path = base_path / f"{variable}_{metric}.pdf"
+            plotlib.savefig(str(save_path))
+            plotlib.show()
