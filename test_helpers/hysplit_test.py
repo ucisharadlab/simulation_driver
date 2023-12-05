@@ -66,7 +66,8 @@ def grid_test(test_run=False):
 
     # Parameter values with larger indexes are slower to calculate.
     total_run_time_values = [str(7 * 24)]
-    output_grid_spacing_values = list(ranges.decimal_range(0.01, 0.1, 0.01)).reverse()
+    output_grid_spacing_values = list(ranges.decimal_range(0.01, 0.1, 0.01))
+    output_grid_spacing_values.reverse()
     output_grid_sampling_rates = ["08 00", "04 00", "03 00", "02 00", "01 00", "00 30", "00 15", "00 05"]
 
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
