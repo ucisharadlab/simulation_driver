@@ -1,5 +1,6 @@
 import csv
 import os
+import shutil
 from pathlib import Path
 
 import simplejson as json
@@ -86,3 +87,11 @@ def get_files_like(path: Path, name_pattern: str) -> [Path]:
     contents = path.glob(name_pattern)
     measure_files = [c for c in contents if c.is_file()]
     return measure_files
+
+
+def copy(source: Path, destination: Path, ignore_error: bool = False):
+    try:
+        shutil.copyfile(source, destination)
+    except shutil.SameFileError as e:
+        if not ignore_error:
+            raise e

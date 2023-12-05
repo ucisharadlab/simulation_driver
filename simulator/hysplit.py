@@ -1,19 +1,18 @@
 import csv
 import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 
 import settings
 from simulator.simulator import CommandLineSimulator, base_dir_macro
-from util import strings
+from util import strings, files
 
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
         working_path = self.get_absolute_path(self.get_parameter(base_dir_macro))
         working_path.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG")
+        files.copy(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG", True)
         output_dir = self.get_parameter("%output_grids%::%dir%")
         self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir) + "/")
         os.chdir(working_path)
@@ -30,7 +29,7 @@ class Hysplit(CommandLineSimulator):
         control_params = self.get_parameter("%control_file%")[0]
         template_file = (self.get_absolute_path(control_params["%template_path%"])
                          / control_params["%template_file%"])
-        file.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
+        files.generate_file(template_file, control_params["%name%"], control_params["%path%"], self.execution_params)
 
     def prepare_command(self) -> [str]:
         for key in self.get_parameter("%keys_with_count%"):
