@@ -85,7 +85,7 @@ class PlotConfig:
 
 variable_labels = {
     "spacing": Dimension("spacing", "Spacing (degrees)", "Spacing"),
-    "sampling_duration": Dimension("sampling_duration", "Frequency of Samples (minutes)", "Sampling Frequency")
+    "sampling_duration": Dimension("sampling_duration", "Sampling Duration (minutes)", "Sampling Duration")
 }
 
 

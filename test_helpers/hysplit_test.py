@@ -28,19 +28,22 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
         hysplit = Hysplit()
         total_count = len(param_values)
 
-        with open(measures_path, "w") as measures_file:
-            clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+        clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+
+        with open(measures_path, "a+") as measures_file:
             measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
-            for run_id, params in param_values:
-                set_outputs(hysplit, working_path, output_path, run_id, params)
-                logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
-                start = datetime.now()
-                hysplit.run(params)
-                duration_s = (datetime.now() - start).total_seconds()
-                logger.info(f"Duration: {duration_s} s")
-                clean_values = [value.replace("\n", " ") for value in params.values()]
+        for run_id, params in param_values:
+            set_outputs(hysplit, working_path, output_path, run_id, params)
+            logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
+            start = datetime.now()
+            hysplit.run(params)
+            duration_s = (datetime.now() - start).total_seconds()
+            logger.info(f"Duration: {duration_s} s")
+            clean_values = [value.replace("\n", " ") for value in params.values()]
+
+            with open(measures_path, "a+") as measures_file:
                 measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
-                sleep()
+            sleep()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 

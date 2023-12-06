@@ -27,10 +27,10 @@ def quality_check():
     parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
     parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generator data.")
     args = parser.parse_args()
-    defaults = {"%output_grids%::%spacing%": "0.001 0.001",
+    defaults = {"%output_grids%::%spacing%": "0.01 0.01",
                 "%output_grids%::%sampling%": "00 00 05",
                 "%grid_center%": "34.12448, -118.40778",
-                "%span%": "5.0 5.0"}
+                "%span%": "0.5 0.5"}
     logger.info(f"Name: {args.name}, Date: {args.date}, Run ID: {args.runid}")
     quality.measure_quality(
         test_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
