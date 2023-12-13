@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 import threading
 import time
 from datetime import datetime
@@ -7,7 +7,6 @@ from datetime import datetime
 from plan.planner import Planner, get_planner
 from repo.edb_repo import EdbRepo
 from simulator.simulator import get_simulator
-
 
 logger = logging.getLogger("Main")
 
@@ -18,6 +17,7 @@ class Driver:
         self.planners = dict()
         self.runtimes = list()
         self.sleep_seconds = sleep_seconds
+        self.completed_queries = list()
 
     def run(self):
         while True:
@@ -27,6 +27,8 @@ class Driver:
             self.handle_data_queries(query_load["data"])
             logger.info("Checking ongoing simulation statuses")
             self.check_simulation_statuses()
+            self.repo.complete_queries(self.completed_queries)
+            self.completed_queries.clear()
             logger.info("Finished cycle")
             time.sleep(self.sleep_seconds)
 
@@ -34,6 +36,7 @@ class Driver:
         for query in learn_queries:
             _, simulator_name, planner_name, test_table = query["query"].split(":")
             self.set_planner(simulator_name, planner_name, self.repo.get_test_data(test_table))
+            self.completed_queries.append(query["id"])
 
     def handle_data_queries(self, data_queries: list):
         for query in data_queries:
@@ -43,7 +46,7 @@ class Driver:
             if len(simulator_details.keys()) <= 0:
                 continue
             simulator_name = simulator_details["name"]
-            plan = self.planners[simulator_name].get_plan(self.repo.get_log(simulator_name), parsed_query)
+            plan = [self.planners[simulator_name].get_best_choice(self.repo.get_log(simulator_name), parsed_query)]
             for params, cost in plan:
                 self.execute_runtime(parsed_query, simulator_details["class_name"], params)
 
@@ -61,7 +64,7 @@ class Driver:
             completed_ids.append(runtime.query_id)
 
         self.runtimes = [r for r in self.runtimes if not r.handled]
-        self.repo.complete_queries(completed_ids)
+        # self.repo.complete_queries(completed_ids)
         return len(self.runtimes)
 
     def execute_runtime(self, query: dict, simulator_class: str, params: str):
@@ -90,9 +93,11 @@ class Driver:
 
     def set_planner(self, simulator_name: str, planner_name: str, test_data: dict = None) -> Planner:
         planner = get_planner(planner_name)
+        logger.info(f"Got planner: {planner_name}")
         simulator = self.repo.get_simulator_by_name(simulator_name)
         planner.learn(get_simulator(simulator["class_name"]), test_data)
         self.planners[simulator_name] = planner
+        logger.info(f"{planner_name} finished learning for {simulator_name}.")
         return planner
 
 

@@ -24,7 +24,7 @@ def default_test():
 def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
     attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
     for attempt in range(0, attempts):
-        working_path, output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix, "MainThread")
+        working_path, output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
         hysplit = Hysplit()
         total_count = len(param_values)
 

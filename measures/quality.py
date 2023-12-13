@@ -75,6 +75,9 @@ def prepare_test_config(test_details: dict, base_path: str):
         for key, value in line.items():
             param_name, param_value = hysplit.get_param(key, value)
             test_config.set_parameter(param_name, param_value)
+            test_config.parameters[param_name] = param_value
+            logger.info(f"After manual set: {test_config.parameters[spacing_param_key]}")
+        logger.info(f"After for loop: {test_config.parameters[spacing_param_key]}")
         test_configs.append({"config": test_config, "details": line})
     return test_configs
 
@@ -84,7 +87,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
         return
 
     set_logger()
-    result_path = Path(parameters["result_path"].replace(bucket_macro, str(current_process().bucket_id)))
+    result_path = Path(parameters["result_path"].replace(bucket_macro, "0"))  # str(current_process().bucket_id)))
     files.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
 
     for i, run in enumerate(test_runs):
@@ -102,10 +105,10 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
             run_details.update(error_measures)
             files.write_list_to_line(result_path, run_details.values())
-            errors_file = result_path.parent / f"errors_run_{run_id}.json"
+            errors_file = result_path.parent / f"errors_run_{run_id}.csv"
             error_rows = [row.values() for row in errors]
             error_rows.insert(0, list(errors[0].keys()))
-            files.write_csv(errors_file, errors)
+            files.write_csv(errors_file, error_rows)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
@@ -176,7 +179,7 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
 
     for timestamp in grouped_data.keys():
         time_diff_sec = (timestamp - row["timestamp"]).total_seconds()
-        if time_diff_sec / 60 > sampling_rate:  # assumption: rows in hysplit result are ordered by time
+        if time_diff_sec / 60 >= sampling_rate:  # assumption: rows in hysplit result are ordered by time
             break
         if time_diff_sec < 0:
             continue

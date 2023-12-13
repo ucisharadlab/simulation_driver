@@ -4,17 +4,18 @@ from datetime import datetime
 from pathlib import Path
 
 import settings
-from simulator.simulator import CommandLineSimulator, base_dir_macro
+from simulator.simulator import CommandLineSimulator
 from util import strings, files
 
 
 class Hysplit(CommandLineSimulator):
     def preprocess(self) -> None:
-        working_path = self.get_absolute_path(self.get_parameter(base_dir_macro))
+        working_path = self.get_working_path(".")
         working_path.mkdir(parents=True, exist_ok=True)
-        files.copy(self.get_absolute_path("./ASCDATA.CFG"), working_path / "ASCDATA.CFG", True)
+        files.copy(Path("./ASCDATA.CFG").resolve(), working_path / "ASCDATA.CFG", True)
         output_dir = self.get_parameter("%output_grids%::%dir%")
         self.set_parameter("%output_grids%::%dir%", str(working_path / output_dir) + "/")
+        self.set_parameter("%original_path%", str(Path().resolve()))
         os.chdir(working_path)
         for param in self.execution_params.keys():
             if param == "%keys_with_count%":
@@ -23,7 +24,7 @@ class Hysplit(CommandLineSimulator):
             self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
-        os.chdir(self.execution_params[base_dir_macro])
+        os.chdir(self.execution_params["%original_path%"])
 
     def generate_input(self):
         control_params = self.get_parameter("%control_file%")[0]
@@ -38,19 +39,19 @@ class Hysplit(CommandLineSimulator):
             self.execution_params, self.execution_params["%output_grids%"][0]["%file%"]))
 
         output_grids = self.get_parameter("%output_grids%")
-        output_dir = self.get_absolute_path(output_grids[0]['%dir%'])
+        output_dir = Path(output_grids[0]['%dir%']).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         self.generate_input()
         dump_files = list()
         for grid in output_grids:
-            dump_files.append(str(self.get_absolute_path(grid['%dir%']) / grid['%file%']) + "\n")
+            dump_files.append(str((grid['%dir%']) + "/" + grid['%file%']) + "\n")
         time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         dump_file_name = output_dir / f"dump_files_{time_suffix}.txt"
         with open(dump_file_name, 'w') as dump_file:
             dump_file.writelines(dump_files)
         file_suffix = output_grids[0]["%file%"]
         output_file = output_dir / f"data_{file_suffix}"
-        self.set_parameter("%data_output%", dump_files[0] + ".txt")
+        self.set_parameter("%data_output%", str(output_file) + ".txt")
         commands = [f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
                     f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_file_name} -o{output_file} && echo 'Done append' && "
                     f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' "]

@@ -26,7 +26,7 @@ class Planner:
 class GreedyPlanner(Planner):
     def get_plan(self, log: list, query_load: list) -> [dict]:
         parameter_choices = self.estimator.dump_model()
-        ordered_parameters = sorted(parameter_choices.items(), key=lambda e: e[1]["cost"])
+        ordered_parameters = sorted(parameter_choices.items(), key=lambda e: e[1]["cost"], reverse=True)
         previous_params = [entry["params"] for entry in log]
         chosen_params = self.choose_parameters(ordered_parameters)
 

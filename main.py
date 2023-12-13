@@ -3,17 +3,17 @@ import argparse
 import log
 import settings
 from driver import Driver
-from measures import quality, quality_plot
+from measures import quality, quality_plot, compute
 from repo.edb_repo import EdbRepo
 from test_helpers.hysplit_test import *
-from util import files
+from util import files, parallel_processing
 
 
 def test_drive(sleep_seconds = settings.DRIVER_SLEEP_SECONDS):
     repo = EdbRepo()
     simulation_driver = Driver(repo, sleep_seconds)
-    simulation_driver.set_planner("hysplit", "plan.planner.GreedyPlanner",
-                                  repo.get_test_data("hysplit_test_data"))
+    # simulation_driver.set_planner("hysplit", "plan.planner.GreedyPlanner",
+    #                               repo.get_test_data("hysplit_test_data"))
     simulation_driver.run()
 
 
@@ -25,7 +25,7 @@ def quality_check():
                         help="Run ID of the test that should be considered ground truth")
     parser.add_argument("-t", "--threadname", default="", help="Name of the thread that ran the test.")
     parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
-    parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generator data.")
+    parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generated data.")
     args = parser.parse_args()
     defaults = {"%output_grids%::%spacing%": "0.01 0.01",
                 "%output_grids%::%sampling%": "00 00 05",
@@ -56,12 +56,40 @@ def collate_measures():
 
 
 def plot_qualities():
-    summary_file = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/errors_summary.csv")
-    quality_plot.plot_measures("/Users/sriramrao/code/simulation/simulation_driver/debug/measures/measures_merged.csv",
-                               str(summary_file), False)
+    durations_path = "/Users/sriramrao/code/simulation/simulation_driver/debug/measures/"
+    summary_file = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/errors_summary.csv")
+    quality_plot.plot_measures(durations_path, str(summary_file), True)
+
+
+def recompute_errors(errors_path: str):
+    error_files = Path(errors_path).resolve().glob("errors_run_*.csv")
+    summary_file = Path(errors_path) / "error_summary.csv"
+    parallel_processing.run_processes(compute.batch_recompute, list(error_files),
+                                      static_params={"summary_file": str(summary_file)})
+
+
+def test_errors():
+    defaults = {"%output_grids%::%spacing%": "0.1 0.1",
+                "%output_grids%::%sampling%": "00 00 30",
+                "%grid_center%": "34.12448, -118.40778",
+                "%span%": "0.5 0.5"}
+    test_config = quality.HysplitResult("./debug/data_dump_1.txt", defaults)
+    base_config = quality.HysplitResult("./debug/data_dump_1.txt", defaults)
+
+    # quality.measure_quality(
+    #     test_details={"name": "grid_measurement", "date": "2023-11-26_23-16", "name_prefix": "data_dump",
+    #                   "thread_name": "", "params": defaults},
+    #     base_details={"name": "grid_measurement", "date": "2023-11-26_23-16", "name_prefix": "data_dump",
+    #                   "thread_name": "", "params": defaults, "run_id": 1},
+    #     base_path="./debug/hysplit_out/")
+    # # keys = "attempt_id,run_id,total_run_time,output_grids::spacing,output_grids::sampling,duration_s".split(",")
+    # error_summary, error_rows = quality.compute_errors(test_config, base_config,
+    #                lambda v, r: quality.interpolate(keys, v, r))
 
 
 if __name__ == '__main__':
     log.init()
-    grid_test()
+    # test_drive()
+    # test_errors()
+    plot_qualities()
     # driver_data_queries_test()

@@ -73,8 +73,8 @@ def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
 
 
 def write_json(file_path: Path, data, mode: str = "w") -> None:
-    with file_path.open(mode) as file:
-        json.dump(data, file)
+    with file_path.open(mode, encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
 
 
 def write_csv(file_path: Path, data, delimiter: str = ",", mode: str = "w") -> None:

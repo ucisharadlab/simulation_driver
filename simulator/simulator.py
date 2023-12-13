@@ -10,12 +10,12 @@ class Simulator:
         self.execution_params = dict()
         self.set_defaults(params)
         self.logger = logging.getLogger()
+        self.set_parameter(base_dir_macro, str(Path("./debug/hysplit_out").resolve()))
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
 
     def set_defaults(self, execution_params: dict = None):
-        self.set_parameter(base_dir_macro, str(Path().resolve()))
         self.set_parameters(self.get_defaults())
         self.set_parameters(execution_params)
 
@@ -66,8 +66,11 @@ class Simulator:
     def get_results(self) -> [dict]:
         raise NotImplementedError()
 
+    def get_working_path(self, relative_path: str):
+        return Path(self.execution_params[base_dir_macro]).resolve() / relative_path
+
     def get_absolute_path(self, relative_path: str):
-        return Path(self.execution_params[base_dir_macro]) / relative_path
+        return Path(".").resolve().parent.parent / relative_path
 
 
 class CommandLineSimulator(Simulator):

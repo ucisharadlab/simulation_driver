@@ -1,5 +1,3 @@
-import json
-
 from repo.sql_repo import SqlRepo
 
 
@@ -53,7 +51,7 @@ class EdbRepo(SqlRepo):
 
     def log(self, simulator: str, execution_info: dict):
         self.execute(f"INSERT INTO simulation_log (simulator, execution_info, timestamp) VALUES "
-                     f"('{simulator}', '{json.dumps(execution_info)}', NOW())")
+                     f"('{simulator}', '[]', NOW())")  # {json.dumps(execution_info)}
 
     def get_log(self, simulator: str):
         rows = self.fetch_entities(f"SELECT simulator, params FROM simulation_log WHERE simulator = '{simulator}'")
@@ -77,6 +75,8 @@ class EdbRepo(SqlRepo):
 
 
 def dict_from_tuple(schema: list, row: tuple) -> dict:
+    if not row:
+        return dict()
     row_attribute_names = dict()
     for i in range(len(schema)):
         row_attribute_names[schema[i]] = row[i]
