@@ -11,10 +11,5 @@ debug/*
 */__pycache__/*
 __pycache__/*
 *.cfg
-CONTROL
-MESSAGE
-VMSDIST
-WARNING
+*.CFG
 settings.py
-CON2ASC.OUT
-ASCDATA.CFG

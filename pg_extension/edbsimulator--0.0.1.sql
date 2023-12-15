@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION
-create_simulator(
+add_simulator(
 	name	TEXT,
 	class_name	TEXT,
 	output_type	TEXT,
@@ -7,30 +7,21 @@ create_simulator(
 	parameters	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.create_simulator(name, class_name, output_type, planner_name, parameters)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    INSERT INTO simulator (name, class_name, output_type, planner, parameters) VALUES
+    (name, class_name, output_type, planner_name, parameters);
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 drop_simulator(
 	name	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.remove_simulator(name)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    DELETE FROM simulator WHERE name = name
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 update_simulator(
@@ -40,15 +31,11 @@ update_simulator(
 	parameters	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.update_simulator(name, class_name, output_type, parameters)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    SELECT drop_simulator(name);
+    SELECT create_simulator(name, class_name, output_type, parameters);
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 get_simulators(
@@ -69,60 +56,42 @@ add_simulated_column(
 	data_type	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.add_simulated_column(name, table_name, column_name, type_key, data_type)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    INSERT INTO simulated_columns (name, table_name, column_name, type_key, data_type) VALUES
+    (name, table_name, column_name, type_key, data_type);
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 drop_simulated_column(
-	name	TEXT
+	column_name	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.remove_simulated_column(name)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    DELETE FROM simulated_columns WHERE name = column_name
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 start_simulator(
 	name	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.start_simulator(name)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    INSERT INTO simulator_status(simulator_name, status, start_time) VALUES
+    (name, 0, NOW())
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 stop_simulator(
 	name	TEXT
 )
 RETURNS VOID AS $$
-
-import sys
-sys.path.insert(1, "/usr/local/lib/python3.11/site-packages/")
-sys.path.insert(1, "/Users/sriramrao/code/farsite/farsite_driver/pg_extension")
-import metadata_access
-
-return metadata_access.stop_simulator(name)
-
-$$ LANGUAGE plpython3u;
+BEGIN
+    UPDATE simulator_status SET status = 1, end_time = NOW() WHERE simulator_name = name AND status = 0
+END
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION
 learn(

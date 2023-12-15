@@ -1,8 +1,9 @@
 import logging
+from multiprocessing import current_process
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
 
-from util import reflection_util
+from util import reflection
 
 
 class Simulator:
@@ -10,12 +11,13 @@ class Simulator:
         self.execution_params = dict()
         self.set_defaults(params)
         self.logger = logging.getLogger()
+        self.set_parameter(original_dir_macro, str(Path().resolve()))
+        self.set_parameter(base_dir_macro, str(Path(f"./debug/hysplit_out/{current_process().name}").resolve()))
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
 
     def set_defaults(self, execution_params: dict = None):
-        self.set_parameter(base_dir_macro, str(Path().resolve()))
         self.set_parameters(self.get_defaults())
         self.set_parameters(execution_params)
 
@@ -66,8 +68,11 @@ class Simulator:
     def get_results(self) -> [dict]:
         raise NotImplementedError()
 
+    def get_working_path(self, relative_path: str):
+        return Path(self.execution_params[base_dir_macro]).resolve() / relative_path
+
     def get_absolute_path(self, relative_path: str):
-        return Path(self.execution_params[base_dir_macro]) / relative_path
+        return Path(self.execution_params[original_dir_macro]).resolve() / relative_path
 
 
 class CommandLineSimulator(Simulator):
@@ -103,7 +108,7 @@ class NoopSimulator(CommandLineSimulator):
 
 
 def get_simulator(full_class_name: str) -> Simulator:
-    return reflection_util.get_instance(full_class_name)
+    return reflection.get_instance(full_class_name)
 
 
 def get_split_keys(composite_key: str) -> (str, str):
@@ -114,3 +119,4 @@ def get_split_keys(composite_key: str) -> (str, str):
 
 
 base_dir_macro = "%base_working_dir%"
+original_dir_macro = "%original_path%"

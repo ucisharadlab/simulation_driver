@@ -3,9 +3,8 @@ import os
 import geopandas as gpd
 from shapely.geometry import Point, Polygon
 
-import util.file_util as files
-import util.string_util as strings
 from simulator.simulator import CommandLineSimulator
+from util import files, strings
 
 
 def check_distance(cell, surface):
@@ -112,5 +111,5 @@ class FarSite(CommandLineSimulator):
     def create_output_path(self) -> str:
         output_path = self.get_parameter("%preset_output_path%")
         output_path = files.sanitise_filename(strings.macro_replace(self.execution_params, output_path))
-        files.create_path(output_path)
+        files.create_path_str(output_path)
         return output_path

@@ -1,11 +1,15 @@
 import logging
-from multiprocessing import Process, Queue, current_process
+from multiprocessing import Process, Queue, current_process, cpu_count
 
 import log
-from util.range_util import bucketize
+from util.ranges import bucketize
 
 
-def run_processes(function, params: list, process_count: int = 1, static_params: dict = None):
+def get_cores() -> int:
+    return cpu_count()
+
+
+def run_processes(function, params: list, process_count: int = get_cores(), static_params: dict = None):
     logging.info("Running %d instances of %s", process_count, function.__name__)
     buckets = bucketize(params, process_count)
 
@@ -27,9 +31,14 @@ def run_processes(function, params: list, process_count: int = 1, static_params:
 
 
 def setup_and_run(queue, bucket, static_params, run):
+    # TODO: accept kwargs and do batch processing set up here
     process_name = current_process().name
     log.configure_worker(queue)
     logger = logging.getLogger(process_name)
     logger.info(f"Process starting")
     run(bucket, static_params)
     logger.info(f"Process complete")
+
+
+def get_bucket_id() -> int:
+    return current_process().bucket_id

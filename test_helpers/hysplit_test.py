@@ -3,19 +3,21 @@ import platform  # to get the current CPU platform (arm or x86); used for sleepi
 import time
 from datetime import datetime
 from decimal import Decimal
+from multiprocessing import current_process
 from pathlib import Path
 
+from simulator import hysplit
 from simulator.hysplit import Hysplit
 from test_helpers.test_data import slow_params
-from util import string_util as strings, range_util as ranges
+from util import strings, ranges
 
 logger = logging.getLogger()
 
 
 def default_test():
-    hysplit = Hysplit()
+    hysplit_sim = Hysplit()
     start = datetime.now()
-    hysplit.run()
+    hysplit_sim.run()
     end = datetime.now()
     duration = end - start
     logger.info(f"Started at: {start}\nEnded at: {end}\nDuration: {duration.total_seconds()}")
@@ -24,23 +26,27 @@ def default_test():
 def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
     attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
     for attempt in range(0, attempts):
-        working_path, output_path, measures_path = get_output_paths(output_dir, test_name, attempt, attempt_time_suffix)
-        hysplit = Hysplit()
+        working_path, output_path, measures_path = (
+            get_output_paths(output_dir, test_name, attempt, attempt_time_suffix, current_process().name))
+        hysplit_sim = Hysplit()
         total_count = len(param_values)
 
-        with open(measures_path, "w") as measures_file:
-            clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+        clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+
+        with open(measures_path, "a+") as measures_file:
             measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
-            for run_id, params in param_values:
-                set_outputs(hysplit, working_path, output_path, run_id, params)
-                logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
-                start = datetime.now()
-                hysplit.run(params)
-                duration_s = (datetime.now() - start).total_seconds()
-                logger.info(f"Duration: {duration_s} s")
-                clean_values = [value.replace("\n", " ") for value in params.values()]
+        for run_id, params in param_values:
+            set_outputs(hysplit_sim, working_path, output_path, run_id, params)
+            logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
+            start = datetime.now()
+            hysplit_sim.run(params)
+            duration_s = (datetime.now() - start).total_seconds()
+            logger.info(f"Duration: {duration_s} s")
+            clean_values = [value.replace("\n", " ") for value in params.values()]
+
+            with open(measures_path, "a+") as measures_file:
                 measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
-                sleep()
+            sleep()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 
@@ -65,15 +71,17 @@ def grid_test(test_run=False):
     #   - output_grid.sampling: "00 00 00 00 00\n00 00 00 00 00\n00 HH MM"
 
     # Parameter values with larger indexes are slower to calculate.
-    total_run_time_values = ["96"]
-    output_grid_spacing_values = ["0.25", "0.2", "0.15", "0.1", "0.05", "0.02", "0.01", "0.005", "0.001"]
-    output_grid_sampling_rates = ["08 00", "04 00", "02 00", "01 00", "00 30", "00 15", "00 10", "00 05"]
+    total_run_time_values = [str(7 * 24)]
+    output_grid_spacing_values = list(ranges.decimal_range(0.01, 0.1, 0.01))
+    output_grid_spacing_values.reverse()
+    output_grid_sampling_rates = ["08 00", "04 00", "02 00", "01 00", "00 30", "00 15", "00 12",
+                                  "00 10", "00 06", "00 05", "00 04", "00 03", "00 02", "00 01"]
 
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
     var_limit_for_testing = 2 if test_run else None
 
-    hysplit = Hysplit()
-    default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
+    hysplit_sim = Hysplit()
+    default_sampling = hysplit_sim.get_defaults()["%output_grids%"][0]["%sampling%"]
 
     parameter_values = list()
     parameter_combination_id = 1
@@ -81,9 +89,11 @@ def grid_test(test_run=False):
         for output_grid_spacing in output_grid_spacing_values[:var_limit_for_testing]:
             for output_grid_sample_rate in output_grid_sampling_rates[:var_limit_for_testing]:
                 sampling = default_sampling[:-5] + output_grid_sample_rate
+                time_step = min(hysplit.get_sampling_rate_mins(sampling), 60)
                 parameter_dict = {"%total_run_time%": total_run_time,
                                   "%output_grids%::%spacing%": f"{output_grid_spacing} {output_grid_spacing}",
-                                  "%output_grids%::%sampling%": sampling}
+                                  "%output_grids%::%sampling%": sampling,
+                                  "%timestep%": str(time_step)}
                 parameter_values.append((parameter_combination_id, parameter_dict))
                 parameter_combination_id += 1
 
@@ -219,6 +229,13 @@ def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
     return test("sampling", test_values, attempts)
 
 
+def time_steps(start=1, end=60, step=0, attempts=1):
+    end = 60 if end > 60 else end
+    test_values = [(num, {"%timestep%": str(num)})
+                   for num in range(start, end // 2 + 1) if end % num == 0]
+    return test("timestep", test_values, attempts)
+
+
 def slow_hysplit_run():
     parameter_dict = [(1, slow_params)]
     return test("slow_run", parameter_dict, 1)
@@ -285,15 +302,9 @@ def get_quality_path(base_path: str, test_details: dict) -> Path:
             / "quality" / current_date_str / f"measures_{bucket_macro}.csv")
 
 
-def get_sampling_rate_mins(sampling: str) -> int:
-    rate = sampling.split(' ')[-3:]
-    days, hours, minutes = rate[0], rate[1], rate[2]
-    return 24 * 60 * int(days) + 60 * int(hours) + int(minutes)
-
-
 parsers = {
     "spacing": lambda v: Decimal(round(Decimal(v.split(" ")[0]), 4)),
-    "sampling": get_sampling_rate_mins
+    "sampling": hysplit.get_sampling_rate_mins
 }
 
 
