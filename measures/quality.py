@@ -88,7 +88,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
 
     set_logger()
     result_path = Path(parameters["result_path"].replace(bucket_macro, "0"))  # str(current_process().bucket_id)))
-    files.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types + ["quality_time"]))
+    files.write_list_to_line(result_path, (list(test_runs[0]["details"].keys()) + measure_types))
 
     for i, run in enumerate(test_runs):
         run_details = run["details"]
@@ -99,8 +99,8 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             start = datetime.now()
             error_aggregates, errors = compute_errors(run["config"], parameters["base_config"],
                                                       lambda v, r: interpolate(run_details.keys(), v, r))
-            run_details["quality_time"] = (datetime.now() - start).total_seconds()
-            logger.info(f"Duration: {run_details['quality_time']} seconds")
+            duration = (datetime.now() - start).total_seconds()
+            logger.info(f"Duration: {duration} seconds")
 
             error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
             run_details.update(error_measures)
@@ -108,7 +108,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             errors_file = result_path.parent / f"errors_run_{run_id}.csv"
             error_rows = [row.values() for row in errors]
             error_rows.insert(0, list(errors[0].keys()))
-            files.write_csv(errors_file, error_rows)
+            files.write_json(errors_file, error_rows)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
@@ -177,7 +177,9 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
     sampling_rate = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     relevant_data = list()
 
-    for timestamp in grouped_data.keys():
+    times = list(grouped_data.keys())
+    times.sort()
+    for timestamp in times:
         time_diff_sec = (timestamp - row["timestamp"]).total_seconds()
         if time_diff_sec / 60 >= sampling_rate:  # assumption: rows in hysplit result are ordered by time
             break
@@ -190,7 +192,7 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
             relevant_data.append(fine_row)
 
     if len(relevant_data) == 0:
-        relevant_data.append(Decimal(-1))
+        relevant_data.append({"concentration": 0.0})
     return relevant_data
 
 

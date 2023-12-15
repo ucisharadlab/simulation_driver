@@ -1,5 +1,4 @@
 import csv
-import os
 import shutil
 from pathlib import Path
 
@@ -13,23 +12,27 @@ def generate_file(template_file: Path, name_template: str, output_path: str, set
         file_content = template.read()
 
     file_content = macro_replace(settings, file_content)
-    filename = os.path.join(output_path,
-                            sanitise_filename(macro_replace(settings, name_template)))
+    filename = (Path(output_path).resolve()
+                / sanitise_filename(macro_replace(settings, name_template)))
 
     with open(filename, 'w') as file:
-        print(os.getcwd())
         file.write(file_content)
     return filename
 
 
 def sanitise_filename(name: str):
-    filename, extension = os.path.splitext(name)
-    return sanitise(filename, [' ', '.'], '_') + extension
+    file = Path(name)
+    return sanitise(file.stem, [' ', '.'], '_') + file.suffix
 
 
-def create_path(path: str) -> None:
-    if not os.path.exists(path):
-        os.mkdir(path)
+def create_path_str(path: str) -> Path:
+    path_setup = Path(path).resolve()
+    path_setup.mkdir(parents=True, exist_ok=True)
+    return path_setup
+
+
+def create_path(path: Path) -> None:
+    path.resolve().mkdir(parents=True, exist_ok=True)
 
 
 def read(path: Path, delimiter: str = ",") -> (dict, [list]):
@@ -66,7 +69,7 @@ def write_list_to_line(file_path: Path, content: list, column_delimiter: str = c
     write_line(file_path, column_delimiter.join([str(value) for value in content]))
 
 
-def write_lines(file_path: Path, lines: list, mode: str = "w") -> None:
+def write_lines(file_path: Path, lines: list, mode: str = "w+") -> None:
     with file_path.open(mode) as file:
         file.writelines("\n".join(str(line) for line in lines))
         file.flush()
@@ -89,9 +92,13 @@ def get_files_like(path: Path, name_pattern: str) -> [Path]:
     return measure_files
 
 
-def copy(source: Path, destination: Path, ignore_error: bool = False):
+def copy(source: Path, destination: Path, report_error: bool = False):
     try:
         shutil.copyfile(source, destination)
     except shutil.SameFileError as e:
-        if not ignore_error:
+        if report_error:
             raise e
+
+
+def prefix_path(prefix: Path, relative_path):
+    return str(prefix.resolve() / relative_path) + "/"

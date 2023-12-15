@@ -28,6 +28,7 @@ def recompute_errors(error_file: Path, summary_file: Path):
     errors["scaled_row_value"] = errors["row_value"] / errors["fine_data"].str.len()
     errors["actual_value"] = pd.DataFrame(errors["fine_data"].values.tolist()).mean(1)
     errors["error"] = errors["scaled_row_value"] - errors["actual_value"]
+    errors["per_cell_error"] = (errors["row_value"] - errors["actual_value"])
 
     errors["ape"] = np.where(errors["actual_value"] != 0, abs(errors["error"]) / errors["actual_value"], -1)
     errors["s_ape"] = np.where(errors["actual_value"] != 0, abs(errors["error"])
@@ -41,13 +42,16 @@ def recompute_errors(error_file: Path, summary_file: Path):
     abs_errors = abs(errors["error"])
     mae = abs_errors.mean()
     rmse = (errors.error ** 2).mean() ** .5
+    abs_cells = abs(errors["per_cell_error"])
+    total_error = abs_cells.sum()
 
     with summary_file.open("a+") as errors_file:
-        errors_file.write(f"{run_id},{mape},{mape_ignore_missing},{smape},{smape_ignore_missing},{mae},{rmse}\n")
+        errors_file.write(f"{run_id},{mape},{mape_ignore_missing},{smape},"
+                          f"{smape_ignore_missing},{mae},{rmse},{total_error}\n")
     # csv_file = error_file.with_suffix(".csv")
     # errors.drop(["errors", "fine_data"], axis=1).to_csv(csv_file)
 
 
 def write_error_headers(file_path: Path) -> None:
     with file_path.open("w") as file:
-        file.write("run_id,mape,mape_ignore_missing,smape,smape_ignore_missing,mae,rmse\n")
+        file.write("run_id,mape,mape_ignore_missing,smape,smape_ignore_missing,mae,rmse,total\n")

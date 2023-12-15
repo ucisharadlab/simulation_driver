@@ -1,4 +1,5 @@
 import logging
+from multiprocessing import current_process
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
 
@@ -10,7 +11,8 @@ class Simulator:
         self.execution_params = dict()
         self.set_defaults(params)
         self.logger = logging.getLogger()
-        self.set_parameter(base_dir_macro, str(Path("./debug/hysplit_out").resolve()))
+        self.set_parameter(original_dir_macro, str(Path().resolve()))
+        self.set_parameter(base_dir_macro, str(Path(f"./debug/hysplit_out/{current_process().name}").resolve()))
 
     def get_defaults(self, params: dict = None) -> dict:
         pass
@@ -70,7 +72,7 @@ class Simulator:
         return Path(self.execution_params[base_dir_macro]).resolve() / relative_path
 
     def get_absolute_path(self, relative_path: str):
-        return Path(".").resolve().parent.parent / relative_path
+        return Path(self.execution_params[original_dir_macro]).resolve() / relative_path
 
 
 class CommandLineSimulator(Simulator):
@@ -117,3 +119,4 @@ def get_split_keys(composite_key: str) -> (str, str):
 
 
 base_dir_macro = "%base_working_dir%"
+original_dir_macro = "%original_path%"

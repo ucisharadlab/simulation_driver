@@ -5,6 +5,7 @@ import settings
 from driver import Driver
 from measures import quality, quality_plot, compute
 from repo.edb_repo import EdbRepo
+from test_helpers import hysplit_test
 from test_helpers.hysplit_test import *
 from util import files, parallel_processing
 
@@ -91,5 +92,6 @@ if __name__ == '__main__':
     log.init()
     # test_drive()
     # test_errors()
-    plot_qualities()
+    # plot_qualities()
     # driver_data_queries_test()
+    hysplit_test.default_test()
