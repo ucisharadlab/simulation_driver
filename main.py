@@ -20,13 +20,13 @@ def test_drive(sleep_seconds = settings.DRIVER_SLEEP_SECONDS):
 
 def quality_check():
     parser = argparse.ArgumentParser(description="Get quality measures.")
-    parser.add_argument("-n", "--name", required=True, help="Name of the (directory of the) test run.")
+    parser.add_argument("-n", "--name", default="grid_measurement", required=True, help="Name of the (directory of the) test run.")
     parser.add_argument("-d", "--date", required=True, help="Datetime (yyyy-MM-dd_HH-mm) when the test was run.")
     parser.add_argument("-r", "--runid", required=True,
                         help="Run ID of the test that should be considered ground truth")
     parser.add_argument("-t", "--threadname", default="", help="Name of the thread that ran the test.")
     parser.add_argument("-b", "--basepath", default="./debug/hysplit_out", help="Base directory of the test.")
-    parser.add_argument("-i", "--infilename", default="dump", help="Name prefix for files with generated data.")
+    parser.add_argument("-i", "--infilename", default="data_dump", help="Name prefix for files with generated data.")
     args = parser.parse_args()
     defaults = {"%output_grids%::%spacing%": "0.01 0.01",
                 "%output_grids%::%sampling%": "00 00 05",

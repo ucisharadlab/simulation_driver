@@ -47,6 +47,7 @@ def test(test_name: str, param_values: list, attempts: int, output_dir: str = ".
             with open(measures_path, "a+") as measures_file:
                 measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
             sleep()
+    logger.info(f"Test complete: {test_name}")
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 

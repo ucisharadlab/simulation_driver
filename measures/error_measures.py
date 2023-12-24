@@ -8,10 +8,9 @@ logger = logging.getLogger()
 
 
 def get_error(coarse_value: Decimal, dataset: [Decimal], interpolate) -> dict:
-    value = coarse_value / len(dataset)
     errors = dict()
     for key in row_error_types.keys():
-        errors[key] = row_error_types[key]([(value - d, d) for d in dataset])
+        errors[key] = row_error_types[key]([(coarse_value - d, d) for d in dataset])
     return errors
 
 

@@ -76,8 +76,6 @@ def prepare_test_config(test_details: dict, base_path: str):
             param_name, param_value = hysplit.get_param(key, value)
             test_config.set_parameter(param_name, param_value)
             test_config.parameters[param_name] = param_value
-            logger.info(f"After manual set: {test_config.parameters[spacing_param_key]}")
-        logger.info(f"After for loop: {test_config.parameters[spacing_param_key]}")
         test_configs.append({"config": test_config, "details": line})
     return test_configs
 
@@ -106,9 +104,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             run_details.update(error_measures)
             files.write_list_to_line(result_path, run_details.values())
             errors_file = result_path.parent / f"errors_run_{run_id}.csv"
-            error_rows = [row.values() for row in errors]
-            error_rows.insert(0, list(errors[0].keys()))
-            files.write_json(errors_file, error_rows)
+            files.write_json(errors_file, errors)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
             logger.error("Could not compute errors for %s", run_id)
@@ -127,7 +123,9 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
                    get_value) -> tuple:
     dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
+    coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
+    node_count = coarse_spacing ** 2 / fine_spacing ** 2
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
@@ -135,7 +133,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         relevant_fine_data = [Decimal(row["concentration"]) for row in
                               get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
         error_row["fine_data"] = relevant_fine_data
-        error_row["errors"] = get_error(Decimal(row["concentration"]), relevant_fine_data, get_value)
+        error_row["errors"] = get_error(Decimal(row["concentration"]) / node_count, relevant_fine_data, get_value)
         error_measures.append(error_row)
         row_count += 1
         if row_count % 100000 == 0:
