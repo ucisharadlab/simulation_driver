@@ -103,7 +103,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
             error_measures = {key: str(round(error, 5)) for key, error in error_aggregates.items()}
             run_details.update(error_measures)
             files.write_list_to_line(result_path, run_details.values())
-            errors_file = result_path.parent / f"errors_run_{run_id}.csv"
+            errors_file = result_path.parent / f"errors_run_{run_id}.json"
             files.write_json(errors_file, errors)
             logger.info(f"Completed run: {run_id}, errors file: {errors_file}")
         except Exception as e:
