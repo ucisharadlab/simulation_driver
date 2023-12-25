@@ -91,7 +91,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
     for i, run in enumerate(test_runs):
         run_details = run["details"]
         run_id = run_details["run_id"]
-        logger.info(f"({i}/{len(test_runs)}) Comparing run: {run_id}")
+        logger.info(f"({i + 1}/{len(test_runs)}) Comparing run: {run_id}")
         run["config"].fetch_results()
         try:
             start = datetime.now()
@@ -123,9 +123,7 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
                    get_value) -> tuple:
     dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
-    coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
-    node_count = coarse_spacing ** 2 / fine_spacing ** 2
     error_measures = list()
     row_count = 0
     for row in dataset_coarse.fetch_results():
@@ -133,7 +131,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         relevant_fine_data = [Decimal(row["concentration"]) for row in
                               get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
         error_row["fine_data"] = relevant_fine_data
-        error_row["errors"] = get_error(Decimal(row["concentration"]) / node_count, relevant_fine_data, get_value)
+        error_row["errors"] = get_error(Decimal(row["concentration"]) / len(relevant_fine_data), relevant_fine_data, get_value)
         error_measures.append(error_row)
         row_count += 1
         if row_count % 100000 == 0:
