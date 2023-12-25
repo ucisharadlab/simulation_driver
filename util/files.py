@@ -52,7 +52,7 @@ def merge(paths: [Path], merged_file: Path, headers: bool = True) -> None:
             if (not path.exists()) or path.stat().st_size == 0:
                 continue
             with path.open("r") as part_file:
-                first_line = part_file.readline()
+                first_line = next(part_file)
                 if headers and not header_written:
                     full_file.write(first_line)
                     header_written = True

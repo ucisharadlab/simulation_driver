@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import settings
@@ -20,6 +20,27 @@ class Hysplit(CommandLineSimulator):
             self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
+        output_file = Path(self.get_parameter("%data_output%"))
+        split_files_dir = output_file.parent
+        data_file = split_files_dir.parent / (output_file.stem + ".txt")
+        with data_file.open("w") as merged_data:
+            merged_data.write(f"{data_file_schema}\n")
+        for sample_file in split_files_dir.glob(output_file.stem + "_*"):
+            sample_time = sample_file.stem.split("_")[-1]
+            sample_hour, sample_minute = int(sample_time[0:2]), int(sample_time[-2:])
+            with sample_file.open("r") as sample:
+                sample_reader = csv.reader(sample, delimiter=',')
+                headers = [value.strip() for value in next(sample_reader)]
+                pollutant = headers[-1]
+                for row in sample_reader:
+                    line = [value.strip() for value in row]
+                    timestamp = hysplit_data_start + timedelta(days=int(line[0]) - 1,
+                                                               hours=sample_hour, minutes=sample_minute)
+                    formatted_row = [timestamp.strftime("%Y-%m-%d %H:%M")] + line[2:-1] + [pollutant, line[-1]]
+                    with data_file.open("a+") as merged_data:
+                        writer = csv.writer(merged_data, delimiter=",", lineterminator='\n')
+                        writer.writerow(formatted_row)
+        self.set_parameter("%data_output%", str(data_file))
         os.chdir(self.execution_params["%original_path%"])
 
     def generate_config(self):
@@ -38,7 +59,8 @@ class Hysplit(CommandLineSimulator):
         dump_path, output_file = self.setup_inputs()
         return [f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
                 f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_path} -o{output_file} && echo 'Done append' && "
-                f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -s -u1.0E+9 -d && echo 'Done conversion' "]
+                f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -o{output_file} -t -x -u1.0E+9 -d "
+                f"> /dev/null && echo 'Done conversion' "]
 
     def setup_parameters(self):
         for key in self.get_parameter("%keys_with_count%"):
@@ -48,8 +70,10 @@ class Hysplit(CommandLineSimulator):
         self.generate_config()
 
     def setup_inputs(self) -> (Path, Path):
-        output_dir = files.create_path_str(self.get_parameter("%output_grids%::%dir%"))
-        output_file = output_dir / f"data_{self.get_parameter('%output_grids%::%file%')}"
+        filename = self.get_parameter('%output_grids%::%file%')
+        output_dir = files.create_path_str(self.get_parameter("%output_grids%::%dir%")) / filename.replace("dump_", "")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / f"data_{filename}"
         dump_files = [str((grid['%dir%']) + "/" + grid['%file%']) for grid in self.get_parameter("%output_grids%")]
         dump_file_path = output_dir / f"dump_files_{get_date_suffix()}.txt"
         files.write_lines(dump_file_path, dump_files)
@@ -59,34 +83,15 @@ class Hysplit(CommandLineSimulator):
     def get_results(self) -> [dict]:
         self.logger.info(f"Fetching results")
         filename = self.get_parameter("%data_output%")
-        sampling_rate = get_sampling_rate_mins(self.get_parameter("%output_grids%::%sampling%"))
         if Path(filename).stat().st_size == 0:
             return list()
         with open(filename) as file:
             lines = csv.reader(file, delimiter=",")
-            header = next(lines)
-            pollutant_name = header[6]
-
-            data = list()
-            last_timestamp, locations_count = "", dict()
-            for raw_line in lines:
-                line = [value.strip() for value in raw_line]
-                new_timestamp = line_timestamp = f"{line[0]}-{line[1]}-{line[2]} {line[3]}:00"
-                row = {"latitude": line[4],
-                       "longitude": line[5],
-                       "name": pollutant_name,
-                       "concentration": line[6]}
-                location = (line[4], line[5])
-                if last_timestamp != new_timestamp:
-                    locations_count.clear()
-                elif sampling_rate < 60:
-                    match_count = locations_count.get(location, 0) + 1
-                    new_timestamp = new_timestamp.replace(":00",
-                                                          f":{((match_count * sampling_rate) % 60):02}")
-                    locations_count[location] = match_count
-                last_timestamp = line_timestamp
-                row["timestamp"] = get_time(new_timestamp if new_timestamp != line_timestamp else line_timestamp)
-                data.append(row)
+            header = [value.strip() for value in next(lines)]
+            data = [{header[i]: line[i].strip() for i in range(0, len(header))}
+                    for line in lines]
+        for row in data:
+            row["timestamp"] = datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
         return data
 
     def add_count(self, key: str, count_key: str = None) -> None:
@@ -127,9 +132,9 @@ class Hysplit(CommandLineSimulator):
                 "%dir%": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
-                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00"
+                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
             }],
-            "%timestep%": "60",
+            "%timestep%": "30",
             "%deposition%": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
             "%control_file%": [{
                 "%template_path%": "./debug/examples/hysplit",
@@ -180,3 +185,7 @@ def get_date_suffix(date: datetime = datetime.now()) -> str:
 def get_param(name: str, value: str) -> tuple:
     name = name.replace("::", "%::%")
     return f"%{name}%", value
+
+
+hysplit_data_start = datetime.strptime("1995-01-01", '%Y-%m-%d')
+data_file_schema = "timestamp,latitude,longitude,pollutant,concentration"

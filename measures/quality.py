@@ -1,7 +1,7 @@
 import logging
 import multiprocessing
 from _decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from multiprocessing import current_process
 from pathlib import Path
 
@@ -18,6 +18,7 @@ logger.setLevel(logging.INFO)
 spacing_param_key = "%output_grids%::%spacing%"
 sampling_param_key = "%output_grids%::%sampling%"
 measure_types = ["mae", "mse", "mape"]
+frechet_deviation = 0.5
 
 
 def set_logger():
@@ -96,7 +97,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
         try:
             start = datetime.now()
             error_aggregates, errors = compute_errors(run["config"], parameters["base_config"],
-                                                      lambda v, r: interpolate(run_details.keys(), v, r))
+                                                      lambda v, r, n: interpolate(run_details.keys(), v, r, n))
             duration = (datetime.now() - start).total_seconds()
             logger.info(f"Duration: {duration} seconds")
 
@@ -122,16 +123,24 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
 
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
                    get_value) -> tuple:
-    dataset_fine, dataset_coarse = validate_datasets(dataset1, dataset2)
+    dataset_fine, dataset_coarse, multiplier = validate_datasets(dataset1, dataset2)
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
+    coarse_sampling = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     error_measures = list()
     row_count = 0
+    grouped_fine_data = group_by_time(dataset_fine)
     for row in dataset_coarse.fetch_results():
         error_row = {"row_value": row["concentration"]}
-        relevant_fine_data = [Decimal(row["concentration"]) for row in
-                              get_matching_data(row, dataset_coarse, fine_spacing, group_by_time(dataset_fine))]
-        error_row["fine_data"] = relevant_fine_data
-        error_row["errors"] = get_error(Decimal(row["concentration"]) / len(relevant_fine_data), relevant_fine_data, get_value)
+        shifted_errors = list()
+        for timestamp in get_frechet_times(row["timestamp"], coarse_sampling):
+            relevant_fine_data = [Decimal(r["concentration"]) for r in
+                                  get_matching_data(row, timestamp, dataset_coarse, fine_spacing, grouped_fine_data)]
+            shifted_errors.append(get_error(Decimal(row["concentration"]) / multiplier, relevant_fine_data, get_value))
+        frechet_errors = dict()
+        for key in shifted_errors[0].keys():
+            frechet_errors[key] = min(x[key] for x in shifted_errors)
+
+        error_row["errors"] = frechet_errors
         error_measures.append(error_row)
         row_count += 1
         if row_count % 100000 == 0:
@@ -145,14 +154,21 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
 def validate_datasets(dataset1, dataset2) -> tuple:
     # can also add span and center validation if needed
     spacing1 = get_width(dataset1.parameters[spacing_param_key])
+    sampling1 = hysplit.get_sampling_rate_mins(dataset1.parameters[sampling_param_key])
     spacing2 = get_width(dataset2.parameters[spacing_param_key])
+    sampling2 = hysplit.get_sampling_rate_mins(dataset2.parameters[sampling_param_key])
     dataset_fine, dataset_coarse = dataset1, dataset2
-    if spacing1 > spacing2:
+    if spacing1 > spacing2 or sampling1 > sampling2:
         dataset_fine, dataset_coarse = dataset2, dataset1
         spacing1, spacing2 = spacing2, spacing1
-    if spacing2 / spacing1 != int(spacing2 / spacing1):
-        raise Exception("Cannot compare: the smaller spacing does not divide the larger spacing")
-    return dataset_fine, dataset_coarse
+        sampling1, sampling2 = sampling2, sampling1
+    space_multiplier = spacing2 / spacing1
+    sampling_multiplier = Decimal(sampling2 / sampling1)
+    if (space_multiplier != spacing2 // spacing1
+            or sampling_multiplier != sampling2 // sampling1):
+        raise Exception("Cannot compare: the finer parameter does not divide the coarser parameter")
+    multiplier = space_multiplier * sampling_multiplier
+    return dataset_fine, dataset_coarse, multiplier
 
 
 def group_by_time(dataset: HysplitResult) -> dict:
@@ -165,7 +181,7 @@ def group_by_time(dataset: HysplitResult) -> dict:
     return grouped_data
 
 
-def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: Decimal, grouped_data: dict) -> [dict]:
+def get_matching_data(row: dict, row_timestamp: datetime, dataset_coarse: HysplitResult, fine_spacing: Decimal, grouped_data: dict) -> [dict]:
     coarse_spacing = get_width(dataset_coarse.parameters[spacing_param_key])
     row_latitude, row_longitude = Decimal(row["latitude"]), Decimal(row["longitude"])
     latitude_bounds = get_space_bounds(row_latitude, (coarse_spacing + fine_spacing) / 2)
@@ -176,7 +192,7 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
     times = list(grouped_data.keys())
     times.sort()
     for timestamp in times:
-        time_diff_sec = (timestamp - row["timestamp"]).total_seconds()
+        time_diff_sec = (timestamp - row_timestamp).total_seconds()
         if time_diff_sec / 60 >= sampling_rate:  # assumption: rows in hysplit result are ordered by time
             break
         if time_diff_sec < 0:
@@ -192,9 +208,9 @@ def get_matching_data(row: dict, dataset_coarse: HysplitResult, fine_spacing: De
     return relevant_data
 
 
-def plot_measures(measures_path: str, variable: str):
-
-    pass
+def get_frechet_times(timestamp: datetime, sampling_interval: int) -> [datetime]:
+    deviation = timedelta(minutes=sampling_interval * frechet_deviation)
+    return [timestamp - deviation, timestamp, timestamp + deviation]
 
 
 def get_width(width: str) -> Decimal:
@@ -210,17 +226,14 @@ def check_bounds(value: Decimal, bounds: tuple) -> bool:
 
 
 interpolations = {
-    "sampling": lambda val, rows: Decimal(val / len(rows))
+    "output_grids::sampling": lambda val, rows, node_count: Decimal(val / len(rows)),
+    "output_grids::spacing": lambda val, rows, node_count: Decimal(val / node_count)
 }
 
 
-def interpolate(params: [str], value: Decimal, rows: [Decimal]) -> Decimal:
+def interpolate(params: [str], value: Decimal, rows: [Decimal], node_count) -> Decimal:
     new_value = value
     for key in interpolations:
         if key in params:
-            new_value = interpolations[key](new_value, rows)
+            new_value = interpolations[key](new_value, rows, node_count)
     return new_value
-
-
-def recalculate():
-    pass

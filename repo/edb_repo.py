@@ -38,10 +38,10 @@ class EdbRepo(SqlRepo):
 
     def store_result(self, data_type: str, rows: [dict]):
         for row in rows:
-            self.execute(f"INSERT INTO {data_type}_data (timestamp, location, name, concentration) VALUES "
-                         f"(to_timestamp('{row['timestamp'].strftime('%Y-%m-%d %H:%M')}', "
+            self.execute(f"INSERT INTO {data_type}_data (timestamp, latitude, longitude, pollutant, concentration) "
+                         f"VALUES (to_timestamp('{row['timestamp'].strftime('%Y-%m-%d %H:%M')}', "
                          f"'YYYY-MM-DD HH24:MI')::timestamp, "
-                         f"'{row['location']}', '{row['name']}', '{row['concentration']}')")
+                         f"'{row['latitude']}', '{row['longitude']}', '{row['pollutant']}', '{row['concentration']}')")
 
     def get_query_load(self) -> [dict]:
         rows = self.fetch_entities(

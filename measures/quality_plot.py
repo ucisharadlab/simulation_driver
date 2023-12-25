@@ -96,45 +96,14 @@ def get_plot_config():
 
     x_variables = [
         Metric(Label.variable, Label.variable, Label.variable),
-        # Metric("mse", "Mean Square Error", "Error (MSE)", MeasureType.log, metric_type=Metric.error),
-        Metric("mse", "MSE %", "Error (MSE)", MeasureType.percent,
+        Metric("mse", "MSE %", "Error (MSE) %", MeasureType.percent,
                metric_type=Metric.error),
-        # Metric("rmse", "Root Mean Square Error", "Error (RMSE)", metric_type=Metric.error),
-        # Metric("rmse", "Relative Root Mean Square Error", "Relative Error (RMSE)",
-        #        MeasureType.relative, Metric.error),
-        # Metric("rmse", "Root Mean Square Error", "Error (RMSE)", LOG),
-        # Metric("rmse", "log(RMSE)", "Log of Error (RMSE)", MeasureType.log_scale),
-        # Metric("smape_ignore_missing", "MAPE", "Error (MAPE)", metric_type=Metric.error),
-        # Metric("smape_ignore_missing", "Relative MAPE %", "Relative Error (MAPE) %", MeasureType.percent, Metric.error),
-        # Metric("smape_ignore_missing", "MAPE", "Error (MAPE)", MeasureType.log, Metric.error),
-        # Metric("smape_ignore_missing", "MAPE Z-Score", "Error Z-Score (MAPE)", MeasureType.zscore, Metric.error),
-        # Metric("mape", "Mean Absolute Percentage Error", "Error (MAPE)", metric_type=Metric.error),
-        # Metric("weighted_error", "Weighted", "Error (Weighted APE)", metric_type=Metric.error),
-        # Metric("rmse", "Root Mean Square Error Z-Score", "Error Z-Score (RMSE)", ZSCORE),
     ]
 
     y_variables = [
         # Metric("duration_s", "Execution Time (seconds)", "Cost (seconds)"),
         Metric("duration_s", "Execution Time %", "Cost", MeasureType.percent),
-        # Metric("duration_s", "Execution Time Z-Score", "Cost Z-Score", MeasureType.zscore),
-        # Metric("duration_s", "Execution Time", "Cost", MeasureType.log),
-        # Metric("rmse", "Root Mean Square Error", "Error (RMSE)", metric_type=Metric.error),
-        # Metric("mse", "Mean Square Error", "Error (MSE)", MeasureType.log, metric_type=Metric.error),
-        Metric("mse", "MSE %", "Error (MSE)", MeasureType.relative, metric_type=Metric.error),
-        # Metric("mse", "Mean Square Error", "Error (MSE)", metric_type=Metric.error),
-        # Metric("mse", "Relative Mean Square Error", "Relative Error (MSE)", MeasureType.relative, metric_type=Metric.error),
-        # Metric("mape", "Mean Absolute Percentage Error", "Error (MAPE)", metric_type=Metric.error),
-        # Metric("mape", "Mean Absolute Percentage Error", "Error (MAPE)", metric_type=Metric.error),
-        # Metric("smape", "SMAPE", "Error (SMAPE)", metric_type=Metric.error),
-        # Metric("mape", "MAPE", "Error (MAPE)", metric_type=Metric.error),
-        # Metric("smape_ignore_missing", "Relative MAPE", "Relative Error (MAPE)", MeasureType.relative, Metric.error),
-        # Metric("smape_ignore_missing", "MAPE Z-Score", "Error Z-Score (MAPE)", MeasureType.zscore, Metric.error),
-        # Metric("smape_ignore_missing", "Log MAPE", "Log Error (MAPE)", MeasureType.log_scale, Metric.error),
-        # Metric("rmse", "Relative Root Mean Square Error", "Relative Error (RMSE)", MeasureType.relative, Metric.error),
-        # Metric("rmse", "Relative Root Mean Square Error", "Relative Error (RMSE)", MeasureType.relative, Metric.error),
-        # Metric("rmse", "Root Mean Square Error (Log axis)", "Error (RMSE)", MeasureType.log, metric_type=Metric.error),
-        # Metric("rmse", "log(RMSE)", "Log Error (RMSE)", MeasureType.log_scale),
-        # Metric("rmse", "Root Mean Square Error Z-Score", "Error Z-Score (RMSE)", ZSCORE),
+        Metric("mse", "MSE %", "Error (MSE) %", MeasureType.percent, metric_type=Metric.error)
     ]
 
     plot_description = list()
@@ -171,6 +140,7 @@ def plot_measures(durations_file: str, errors_file: str, save: bool = False):
 def get_durations(measures_path: str):
     path = Path(measures_path)
     durations = pd.read_csv(path / "runtime_measurements_0.csv")
+    durations.columns = durations.columns.str.lower()
     for measure_file in Path(measures_path).resolve().glob("runtime_measurements*"):
         if "runtime_measurements_0" == measure_file.stem:
             continue
@@ -190,7 +160,8 @@ def get_durations(measures_path: str):
 
 def get_errors(file: str):
     errors = pd.read_csv(file).drop_duplicates()
-    errors["mse"] = errors["rmse"] * errors["rmse"]
+    errors = errors[["attempt_id", "run_id", "mae", "mse", "mape"]]
+    errors["rmse"] = errors["mse"] ** 0.5
     return errors
 
 
@@ -251,10 +222,11 @@ def add_measure(dataframe: DataFrame, dimension: str, metric: str, measure_type:
 
 
 def remove_unneeded_points(dataframe: DataFrame, description: PlotConfig) -> DataFrame:
-    dataframe = dataframe.query("spacing > 0.02 and sampling_duration != 5")
+    dataframe = dataframe.query("spacing > 0.01 and sampling_duration > 1")
     # if description.x.name == "spacing" and description.y.metric_type == Metric.error:
     #     dataframe = dataframe.loc[(dataframe["spacing"] * 100) % 2 == 1]
-    dataframe = dataframe.query("sampling_duration not in [10, 20, 40, 50]")
+    dataframe = dataframe.query("sampling_duration <= 120")
+    # dataframe = dataframe.query("")
     # check if hysplit samples at an internal fixed rate
     return dataframe
 
@@ -277,7 +249,8 @@ def complete_plot(figure: Figure, axes: [[Axes]], info: {str: Dimension}, save: 
     legend = figure.legend(handles, labels, title=info["constant"].title_label, framealpha=1.0, loc="center",
                            title_fontproperties={"weight": "bold", "size": 32},
                            prop={"weight": "bold", "size": 28},
-                           facecolor="white", edgecolor="grey", bbox_to_anchor=(0.5, 1.02), ncols=columns, borderpad=0.1)
+                           facecolor="white", edgecolor="grey", bbox_to_anchor=(0.5, 1.02), ncols=columns,
+                           borderpad=0.1)
     legend.get_frame().set_linewidth(2.5)
     # figure.suptitle(f"{info['variable'].title_label}: Error and Cost", y=0.95, fontsize=30, fontweight="bold")
     figure.tight_layout()
@@ -302,8 +275,10 @@ def plot_dataset(dataframe: DataFrame, description: PlotConfig, axis: Axes):
         else {v: get_sub_line_color() for v in unique_values}
     palette.update({Label.average_label: get_main_line_color()})
 
-    sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=averages,  # label="Average",
-                 style=hue, markers="o", markersize=20, color=get_main_line_color(), errorbar=None, estimator="mean", lw=7,
+    sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=averages,
+                 # label="Average",
+                 style=hue, markers="o", markersize=20, color=get_main_line_color(), errorbar=None, estimator="mean",
+                 lw=7,
                  ax=axis)
     sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=dataframe,
                  hue=hue, style=hue, markers=True, markersize=10, palette=palette, ax=axis)
