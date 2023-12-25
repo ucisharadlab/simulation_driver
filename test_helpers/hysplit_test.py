@@ -23,8 +23,9 @@ def default_test():
     logger.info(f"Started at: {start}\nEnded at: {end}\nDuration: {duration.total_seconds()}")
 
 
-def test(test_name: str, param_values: list, attempts: int, output_dir: str = "./debug/hysplit_out"):
-    attempt_time_suffix = datetime.now().strftime('%Y-%m-%d_%H-%M')
+def test(test_name: str, param_values: list, attempts: int,
+         output_dir: str = "./debug/hysplit_out", time_suffix: str = None):
+    attempt_time_suffix = time_suffix if time_suffix else datetime.now().strftime('%Y-%m-%d_%H-%M')
     for attempt in range(0, attempts):
         working_path, output_path, measures_path = (
             get_output_paths(output_dir, test_name, attempt, attempt_time_suffix, current_process().name))
@@ -63,7 +64,7 @@ def locations_test(start=1, end=9, step=1, attempts=1):
     test("start_locations", values, attempts)
 
 
-def grid_test(test_run=False):
+def grid_test(test_run=False, time_suffix: str = None):
     # For first initial runtime measurements, we vary the following parameters of Hysplit:
     #   - total_run_time (days of simulation)
     #   - output_grid.spacing[x, y] (the default values define a central point in LA and a rectangle surrounding it
@@ -75,8 +76,8 @@ def grid_test(test_run=False):
     total_run_time_values = [str(7 * 24)]
     output_grid_spacing_values = list(ranges.decimal_range(0.01, 0.1, 0.01))
     output_grid_spacing_values.reverse()
-    output_grid_sampling_rates = ["08 00", "04 00", "02 00", "01 00", "00 30", "00 15", "00 12",
-                                  "00 10", "00 06", "00 05", "00 04", "00 03", "00 02", "00 01"]
+    output_grid_sampling_rates = ["02 00", "01 00", "00 30", "00 15", "00 12", "00 10",
+                                  "00 06", "00 05", "00 04", "00 03", "00 02", "00 01"]
 
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
     var_limit_for_testing = 2 if test_run else None
@@ -99,7 +100,7 @@ def grid_test(test_run=False):
                 parameter_combination_id += 1
 
     # Run two rounds (or 'attempts') when testing, otherwise 5.
-    test("grid_measurement", parameter_values, 2 if test_run else 5)
+    test("grid_measurement", parameter_values, 2 if test_run else 5, time_suffix=time_suffix)
 
 
 def coinciding_points_check():

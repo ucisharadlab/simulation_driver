@@ -47,8 +47,9 @@ class HysplitResult:
         return self.results
 
 
-def measure_quality(test_details: dict, base_details: dict, process_count: int = multiprocessing.cpu_count(),
-                    base_path: str = "./debug/hysplit_out"):
+def measure_quality(test_details: dict, process_count: int = multiprocessing.cpu_count(),
+                    base_path: str = "./debug/hysplit_out", base_details: dict = None):
+    base_details = base_details if base_details else test_details
     base_config = get_result_config(base_path, base_details, base_details["run_id"])
     base_config.fetch_results()
     measures_path = hysplit_test.get_quality_path(base_path, test_details).resolve()

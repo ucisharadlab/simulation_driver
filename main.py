@@ -10,7 +10,7 @@ from test_helpers.hysplit_test import *
 from util import files, parallel_processing
 
 
-def test_drive(sleep_seconds = settings.DRIVER_SLEEP_SECONDS):
+def test_drive(sleep_seconds=settings.DRIVER_SLEEP_SECONDS):
     repo = EdbRepo()
     simulation_driver = Driver(repo, sleep_seconds)
     # simulation_driver.set_planner("hysplit", "plan.planner.GreedyPlanner",
@@ -20,7 +20,7 @@ def test_drive(sleep_seconds = settings.DRIVER_SLEEP_SECONDS):
 
 def quality_check():
     parser = argparse.ArgumentParser(description="Get quality measures.")
-    parser.add_argument("-n", "--name", default="grid_measurement", required=True, help="Name of the (directory of the) test run.")
+    parser.add_argument("-n", "--name", default="grid_measurement", help="Name of the (directory of the) test run.")
     parser.add_argument("-d", "--date", required=True, help="Datetime (yyyy-MM-dd_HH-mm) when the test was run.")
     parser.add_argument("-r", "--runid", required=True,
                         help="Run ID of the test that should be considered ground truth")
@@ -33,12 +33,9 @@ def quality_check():
                 "%grid_center%": "34.12448, -118.40778",
                 "%span%": "0.5 0.5"}
     logger.info(f"Name: {args.name}, Date: {args.date}, Run ID: {args.runid}")
-    quality.measure_quality(
-        test_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
-                      "thread_name": args.threadname, "params": defaults},
-        base_details={"name": args.name, "date": args.date, "name_prefix": args.infilename,
-                      "thread_name": args.threadname, "params": defaults, "run_id": args.runid},
-        base_path=args.basepath)
+    config = {"name": args.name, "date": args.date, "name_prefix": args.infilename,
+              "thread_name": args.threadname, "params": defaults, "run_id": args.runid}
+    quality.measure_quality(test_details=config, base_path=args.basepath)
 
 
 def get_measure_files(path: Path) -> [Path]:
@@ -70,12 +67,15 @@ def recompute_errors(errors_path: str):
 
 
 def test_errors():
-    defaults = {"%output_grids%::%spacing%": "0.1 0.1",
-                "%output_grids%::%sampling%": "00 00 30",
-                "%grid_center%": "34.12448, -118.40778",
-                "%span%": "0.5 0.5"}
-    test_config = quality.HysplitResult("./debug/data_dump_1.txt", defaults)
-    base_config = quality.HysplitResult("./debug/data_dump_1.txt", defaults)
+    defaults = {"%output_grids%::%spacing%": "0.01 0.01",
+                "%output_grids%::%sampling%": "00 00 01",
+                "%grid_center%": "34.12448, -118.40778"}
+    file = Path("/Users/sriramrao/code/simulation/simulation_driver/"
+                "debug/hysplit_out/measures/2023-12-24/").resolve()
+    base_config = quality.HysplitResult(file / "data_dump_140.csv", defaults)
+    test_values = defaults.copy()
+    test_values["%output_grids%::%sampling%"] = "00 00 02"
+    test_config = quality.HysplitResult(file / "data_dump_139.csv", test_values)
 
     # quality.measure_quality(
     #     test_details={"name": "grid_measurement", "date": "2023-11-26_23-16", "name_prefix": "data_dump",
@@ -83,9 +83,31 @@ def test_errors():
     #     base_details={"name": "grid_measurement", "date": "2023-11-26_23-16", "name_prefix": "data_dump",
     #                   "thread_name": "", "params": defaults, "run_id": 1},
     #     base_path="./debug/hysplit_out/")
-    # # keys = "attempt_id,run_id,total_run_time,output_grids::spacing,output_grids::sampling,duration_s".split(",")
-    # error_summary, error_rows = quality.compute_errors(test_config, base_config,
-    #                lambda v, r: quality.interpolate(keys, v, r))
+    keys = "attempt_id,run_id,total_run_time,output_grids::spacing,output_grids::sampling,duration_s".split(",")
+    error_summary, error_rows = quality.compute_errors(test_config, base_config,
+                                                       lambda v, r, n: quality.interpolate(keys, v, r, n))
+    logger.info(f"Errors: {error_summary}")
+
+
+def test_and_measure():
+    parser = argparse.ArgumentParser(description="Run grid tests and quality measurements.")
+    parser.add_argument("-d", "--date", required=True, help="Datetime (yyyy-MM-dd_HH-mm)")
+    parser.add_argument("-r", "--runid", required=True,
+                        help="Run ID of the test that should be considered ground truth")
+    defaults = {"%output_grids%::%spacing%": "0.01 0.01",
+                "%output_grids%::%sampling%": "00 00 05",
+                "%grid_center%": "34.12448, -118.40778"}
+    args = parser.parse_args()
+
+    logger.info(f"Date: {args.date}, Run ID: {args.runid}")
+    logger.info(f"Beginning grid test, date: {args.date}")
+    hysplit_test.grid_test(time_suffix=args.date)
+
+    logger.info(f"Beginning quality measurements, date: {args.date}, base runID: {args.runid}")
+    details = {"name": "grid_measurement", "date": args.date, "name_prefix": "data_dump",
+               "thread_name": "MainProcess", "params": defaults, "run_id": args.runid}
+    quality.measure_quality(test_details=details, base_path=args.basepath)
+    logger.info(f"Execution complete")
 
 
 if __name__ == '__main__':
@@ -95,3 +117,5 @@ if __name__ == '__main__':
     # plot_qualities()
     # driver_data_queries_test()
     hysplit_test.default_test()
+    # plot_qualities()
+    # test_errors()

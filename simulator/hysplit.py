@@ -128,7 +128,7 @@ class Hysplit(CommandLineSimulator):
             "%output_grids%": [{
                 "%centre%": "34.12448, -118.40778",
                 "%spacing%": "0.05 0.05",
-                "%span%": "0.5 0.5",
+                "%span%": "1.0 1.0",
                 "%dir%": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
                 "%file%": "dump_%params%",
                 "%vertical_level%": "1\n50",
