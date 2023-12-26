@@ -43,13 +43,21 @@ def test(test_name: str, param_values: list, attempts: int,
             hysplit_sim.run(params)
             duration_s = (datetime.now() - start).total_seconds()
             logger.info(f"Duration: {duration_s} s")
-            clean_values = [value.replace("\n", " ") for value in params.values()]
 
             with open(measures_path, "a+") as measures_file:
-                measures_file.writelines(f"{attempt},{run_id},{','.join(clean_values)},{duration_s}\n")
+                measures_file.writelines(f"{attempt},{run_id},{','.join(get_clean_values(params))},{duration_s}\n")
             sleep()
     logger.info(f"Test complete: {test_name}")
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
+
+
+def get_clean_values(params: dict) -> [str]:
+    clean_params = params.copy()
+    if "%output_grids%::%sampling%" in params:
+        clean_params["%output_grids%::%sampling%"] = str(hysplit.get_sampling_rate_mins(
+            clean_params["%output_grids%::%sampling%"]))
+    return [(value.replace("\n", " ") if not isinstance(value, list) else str(len(value)))
+            for value in clean_params.values()]
 
 
 def locations_test(start=1, end=9, step=1, attempts=1):
@@ -73,11 +81,13 @@ def grid_test(test_run=False, time_suffix: str = None):
     #   - output_grid.sampling: "00 00 00 00 00\n00 00 00 00 00\n00 HH MM"
 
     # Parameter values with larger indexes are slower to calculate.
-    total_run_time_values = [str(7 * 24)]
+    total_run_time_values = [7 * 24]
     output_grid_spacing_values = list(ranges.decimal_range(0.01, 0.1, 0.01))
     output_grid_spacing_values.reverse()
     output_grid_sampling_rates = ["02 00", "01 00", "00 30", "00 15", "00 12", "00 10",
                                   "00 06", "00 05", "00 04", "00 03", "00 02", "00 01"]
+    pollutants_count = 5
+    output_grid_span = 5.0
 
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
     var_limit_for_testing = 2 if test_run else None
@@ -92,10 +102,13 @@ def grid_test(test_run=False, time_suffix: str = None):
             for output_grid_sample_rate in output_grid_sampling_rates[:var_limit_for_testing]:
                 sampling = default_sampling[:-5] + output_grid_sample_rate
                 time_step = min(hysplit.get_sampling_rate_mins(sampling), 60)
-                parameter_dict = {"%total_run_time%": total_run_time,
-                                  "%output_grids%::%spacing%": f"{output_grid_spacing} {output_grid_spacing}",
+                parameter_dict = {"%total_run_time%": str(total_run_time),
+                                  "%output_grids%::%spacing%": f"{output_grid_spacing:.4f} {output_grid_spacing:.4f}",
                                   "%output_grids%::%sampling%": sampling,
-                                  "%timestep%": str(time_step)}
+                                  "%timestep%": str(time_step),
+                                  "%output_grids%::%span%": f"{output_grid_span:.3f} {output_grid_span:.3f}",
+                                  "%pollutants%": [get_pollutant(f"P{(i + 1):03d}", total_run_time - 24)
+                                                   for i in range(0, pollutants_count)]}
                 parameter_values.append((parameter_combination_id, parameter_dict))
                 parameter_combination_id += 1
 
@@ -236,6 +249,15 @@ def time_steps(start=1, end=60, step=0, attempts=1):
     test_values = [(num, {"%timestep%": str(num)})
                    for num in range(start, end // 2 + 1) if end % num == 0]
     return test("timestep", test_values, attempts)
+
+
+def get_pollutant(name: str, duration_hours: int, rate: Decimal = 50):
+    return {
+        "%id%": name,
+        "%emission_rate%": str(rate),
+        "%emission_duration_hours%": str(duration_hours),
+        "%release_start%": "00 00 00 00 00"
+    }
 
 
 def slow_hysplit_run():

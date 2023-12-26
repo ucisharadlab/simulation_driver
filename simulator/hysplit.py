@@ -31,15 +31,16 @@ class Hysplit(CommandLineSimulator):
             with sample_file.open("r") as sample:
                 sample_reader = csv.reader(sample, delimiter=',')
                 headers = [value.strip() for value in next(sample_reader)]
-                pollutant = headers[-1]
                 for row in sample_reader:
                     line = [value.strip() for value in row]
                     timestamp = hysplit_data_start + timedelta(days=int(line[0]) - 1,
                                                                hours=sample_hour, minutes=sample_minute)
-                    formatted_row = [timestamp.strftime("%Y-%m-%d %H:%M")] + line[2:-1] + [pollutant, line[-1]]
-                    with data_file.open("a+") as merged_data:
-                        writer = csv.writer(merged_data, delimiter=",", lineterminator='\n')
-                        writer.writerow(formatted_row)
+                    formatted_row = [timestamp.strftime("%Y-%m-%d %H:%M")] + line[2:-1]
+                    for p in range(4, len(line)):
+                        data_row = formatted_row + [headers[p], line[p]]
+                        with data_file.open("a+") as merged_data:
+                            writer = csv.writer(merged_data, delimiter=",", lineterminator='\n')
+                            writer.writerow(data_row)
         self.set_parameter("%data_output%", str(data_file))
         os.chdir(self.execution_params["%original_path%"])
 
@@ -67,6 +68,8 @@ class Hysplit(CommandLineSimulator):
             self.add_count(key)
         self.set_parameter("%output_grids%::%file%", strings.macro_replace(
             self.execution_params, self.get_parameter("%output_grids%::%file%")))
+        deposition = self.get_parameter("%deposition%") * int(self.get_parameter("%pollutants_count%"))
+        self.set_parameter("%deposition%", deposition)
         self.generate_config()
 
     def setup_inputs(self) -> (Path, Path):
