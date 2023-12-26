@@ -29,7 +29,7 @@ def quality_check():
     parser.add_argument("-i", "--infilename", default="data_dump", help="Name prefix for files with generated data.")
     args = parser.parse_args()
     defaults = {"%output_grids%::%spacing%": "0.01 0.01",
-                "%output_grids%::%sampling%": "00 00 05",
+                "%output_grids%::%sampling%": "00 00 01",
                 "%grid_center%": "34.12448, -118.40778",
                 "%span%": "0.5 0.5"}
     logger.info(f"Name: {args.name}, Date: {args.date}, Run ID: {args.runid}")
@@ -115,6 +115,7 @@ if __name__ == '__main__':
     # test_errors()
     # plot_qualities()
     # driver_data_queries_test()
-    hysplit_test.default_test()
+    # hysplit_test.default_test()
     # plot_qualities()
     # test_errors()
+    quality_check()
