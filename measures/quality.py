@@ -135,7 +135,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult) -> tuple:
             relevant_fine_data = [Decimal(r["concentration"]) for r in
                                   get_matching_data(row, timestamp, dataset_coarse, fine_spacing, grouped_fine_data)]
             row_errors = get_error(Decimal(row["concentration"]) / sampling_multiplier, relevant_fine_data)
-            row_errors["absolute"] = row["absolute"] * node_count
+            row_errors["absolute"] = row_errors["absolute"] * node_count
             shifted_errors.append(row_errors)
         frechet_errors = dict()
         for key in shifted_errors[0].keys():
