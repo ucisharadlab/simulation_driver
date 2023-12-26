@@ -28,11 +28,12 @@ def set_logger():
 
 
 class HysplitResult:
-    def __init__(self, path: Path, parameters: dict = None):
+    def __init__(self, path: Path, parameters: dict = None, pollutant: str = "P001"):
         self.parameters = dict()
         if parameters is not None:
             self.parameters.update(parameters)
         self.path = path
+        self.pollutant = pollutant
         self.results = None
 
     def set_parameter(self, name: str, value: str) -> None:
@@ -43,7 +44,7 @@ class HysplitResult:
             return self.results
         simulator = Hysplit(self.parameters)
         simulator.set_parameter("%data_output%", str(self.path))
-        self.results = simulator.get_results()
+        self.results = [row for row in simulator.get_results() if row[""].startswith(self.pollutant)]
         return self.results
 
 
