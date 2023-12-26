@@ -20,9 +20,11 @@ class Hysplit(CommandLineSimulator):
             self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
+        self.logger.info("Post-process commencing")
         output_file = Path(self.get_parameter("%data_output%"))
         split_files_dir = output_file.parent
         data_file = split_files_dir.parent / (output_file.stem + ".txt")
+        rows_written = 0
         with data_file.open("w") as merged_data:
             merged_data.write(f"{data_file_schema}\n")
         for sample_file in split_files_dir.glob(output_file.stem + "_*"):
@@ -41,8 +43,12 @@ class Hysplit(CommandLineSimulator):
                         with data_file.open("a+") as merged_data:
                             writer = csv.writer(merged_data, delimiter=",", lineterminator='\n')
                             writer.writerow(data_row)
+                            rows_written += 1
+                            if rows_written % 100000 == 0:
+                                self.logger.info(f"Rows written: {rows_written}")
         self.set_parameter("%data_output%", str(data_file))
         os.chdir(self.execution_params["%original_path%"])
+        self.logger.info("Post-process complete")
 
     def generate_config(self):
         control_params = self.get_parameter("%control_file%")[0]
