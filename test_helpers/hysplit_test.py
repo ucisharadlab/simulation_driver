@@ -32,10 +32,10 @@ def test(test_name: str, param_values: list, attempts: int,
         hysplit_sim = Hysplit()
         total_count = len(param_values)
 
-        clean_keys = [key.upper().replace("%", "").replace("::", "__") for key in param_values[0][1].keys()]
+        clean_keys = [key.lower().replace("%", "") for key in param_values[0][1].keys()]
 
         with open(measures_path, "a+") as measures_file:
-            measures_file.writelines(f"ATTEMPT_ID,RUN_ID,{','.join(clean_keys)},DURATION_S\n")
+            measures_file.writelines(f"attempt_id,run_id,{','.join(clean_keys)},duration_s\n")
         for run_id, params in param_values:
             set_outputs(hysplit_sim, working_path, output_path, run_id, params)
             logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")

@@ -84,7 +84,7 @@ class PlotConfig:
 
 variable_labels = {
     "spacing": Dimension("spacing", "Spacing (degrees)", "Node Spacing"),
-    "sampling_duration": Dimension("sampling_duration", "Interval (minutes)", "Sampling Interval")
+    "sampling_duration": Dimension("sampling_duration", "Time Step (minutes)", "Time Step")
 }
 
 
@@ -96,8 +96,7 @@ def get_plot_config():
 
     x_variables = [
         Metric(Label.variable, Label.variable, Label.variable),
-        Metric("mse", "MSE %", "Error (MSE) %", MeasureType.percent,
-               metric_type=Metric.error),
+        Metric("duration_s", "Execution Time %", "Cost", MeasureType.percent),
     ]
 
     y_variables = [
@@ -117,7 +116,7 @@ def get_plot_config():
     return plot_info, plot_description
 
 
-def plot_measures(durations_file: str, errors_file: str, save: bool = False):
+def plot_measures(durations_file: Path, errors_file: str, save: bool = False):
     base_path = Path("./debug/hysplit_out/plots/measures/" + strings.get_date_str()).resolve()
     plot_info, plot_description = get_plot_config()
 
@@ -137,11 +136,10 @@ def plot_measures(durations_file: str, errors_file: str, save: bool = False):
         complete_plot(figure, axes, info, save, base_path)
 
 
-def get_durations(measures_path: str):
-    path = Path(measures_path)
-    durations = pd.read_csv(path / "runtime_measurements_0.csv")
+def get_durations(measures_path: Path):
+    durations = pd.read_csv(measures_path / "runtime_measurements_0.csv")
     durations.columns = durations.columns.str.lower()
-    for measure_file in Path(measures_path).resolve().glob("runtime_measurements*"):
+    for measure_file in measures_path.glob("runtime_measurements*"):
         if "runtime_measurements_0" == measure_file.stem:
             continue
         measures = pd.read_csv(measure_file)
@@ -184,9 +182,10 @@ def add_mean(dataframe: DataFrame, config: PlotConfig, average_label=Label.avera
     x_measure, y_measure = config.x.name, config.y.name
     columns = {config.variable.name, x_measure, y_measure}
     average_methods = {
-        x_measure: "mean" if MeasureType.log_scale != config.x.measure else gmean,
         y_measure: "mean" if MeasureType.log_scale != config.y.measure else gmean
     }
+    if config.variable.name != x_measure:
+        average_methods[x_measure] = "mean" if MeasureType.log_scale != config.x.measure else gmean
     averages = dataframe[list(columns)].groupby(config.variable.name, as_index=False).agg(average_methods)
     averages[config.constant.name] = average_label
     return pd.concat([dataframe, averages])
@@ -225,7 +224,7 @@ def remove_unneeded_points(dataframe: DataFrame, description: PlotConfig) -> Dat
     dataframe = dataframe.query("spacing > 0.01 and sampling_duration > 1")
     # if description.x.name == "spacing" and description.y.metric_type == Metric.error:
     #     dataframe = dataframe.loc[(dataframe["spacing"] * 100) % 2 == 1]
-    dataframe = dataframe.query("sampling_duration <= 120")
+    dataframe = dataframe.query("sampling_duration < 120")
     # dataframe = dataframe.query("")
     # check if hysplit samples at an internal fixed rate
     return dataframe
@@ -275,13 +274,13 @@ def plot_dataset(dataframe: DataFrame, description: PlotConfig, axis: Axes):
         else {v: get_sub_line_color() for v in unique_values}
     palette.update({Label.average_label: get_main_line_color()})
 
-    sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=averages,
-                 # label="Average",
-                 style=hue, markers="o", markersize=20, color=get_main_line_color(), errorbar=None, estimator="mean",
-                 lw=7,
-                 ax=axis)
+    # axis.set_xlim(0, dataframe[[description.x.get_measure_name()]].max().iloc[0])
+    # axis.set_ylim(0, dataframe[[description.y.get_measure_name()]].max().iloc[0])
     sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=dataframe,
                  hue=hue, style=hue, markers=True, markersize=10, palette=palette, ax=axis)
+    sns.lineplot(x=description.x.get_measure_name(), y=description.y.get_measure_name(), data=averages,
+                 style=hue, markers="o", markersize=15, color=get_main_line_color(),
+                 errorbar=None, estimator="mean", lw=4, ax=axis)
     if MeasureType.log == description.x.measure:
         axis.set(xscale="log")
     if MeasureType.log == description.y.measure:
