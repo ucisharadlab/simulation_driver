@@ -10,14 +10,15 @@ logger = logging.getLogger()
 def get_error(coarse_value: Decimal, dataset: [Decimal]) -> dict:
     errors = dict()
     for key in row_error_types.keys():
-        errors[key] = row_error_types[key]([(coarse_value - d, d) for d in dataset])
+        errors[key] = row_error_types[key]([(coarse_value, d) for d in dataset])
     return errors
 
 
 row_error_types = {
-    "absolute": lambda values: Decimal(statistics.fmean([abs(value[0]) for value in values])),
-    "spercent": lambda values: Decimal(statistics.fmean([abs(value[0])/((abs(value[1]) + abs(value[0])) / 2)
-                                                        for value in values]))
+    "absolute": lambda values: Decimal(sum([abs(value[0] - value[1]) for value in values])),
+    "spercent": lambda values: Decimal(len(values) * statistics.fmean(
+        [abs(value[0] - value[1]) / ((abs(value[0]) + abs(value[1])) / 2)
+         for value in values]))
 }
 
 
@@ -27,7 +28,7 @@ def aggregate(dataset: [(Decimal, Decimal)], error_type: str) -> Decimal:
 
 measure_types = {
     "mae": lambda values: Decimal(statistics.fmean([value["absolute"] for value in values])),
-    "mse": lambda values: Decimal(statistics.fmean([value["absolute"]**2 for value in values])),
+    "mse": lambda values: Decimal(statistics.fmean([value["absolute"] ** 2 for value in values])),
     "rmse": lambda values: math.sqrt(measure_types["mse"](values)),
     "sum": lambda values: sum([value["absolute"] for value in values]),
     "mape": lambda values: Decimal(statistics.fmean([value["spercent"] for value in values]))
