@@ -122,7 +122,7 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
 
 
 def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult) -> tuple:
-    dataset_fine, dataset_coarse, multiplier = validate_datasets(dataset1, dataset2)
+    dataset_fine, dataset_coarse, sampling_multiplier, node_count = validate_datasets(dataset1, dataset2)
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
     coarse_sampling = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
     error_measures = list()
@@ -134,7 +134,9 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult) -> tuple:
         for timestamp in get_frechet_times(row["timestamp"], coarse_sampling):
             relevant_fine_data = [Decimal(r["concentration"]) for r in
                                   get_matching_data(row, timestamp, dataset_coarse, fine_spacing, grouped_fine_data)]
-            shifted_errors.append(get_error(Decimal(row["concentration"]) / multiplier, relevant_fine_data))
+            row_errors = get_error(Decimal(row["concentration"]) / sampling_multiplier, relevant_fine_data)
+            row_errors["absolute"] = row["absolute"] * node_count
+            shifted_errors.append(row_errors)
         frechet_errors = dict()
         for key in shifted_errors[0].keys():
             frechet_errors[key] = min(x[key] for x in shifted_errors)
@@ -165,10 +167,10 @@ def validate_datasets(dataset1, dataset2) -> tuple:
     if (space_multiplier != spacing2 // spacing1
             or sampling_multiplier != sampling2 // sampling1):
         raise Exception("Cannot compare: the finer parameter does not divide the coarser parameter")
-    multiplier = sampling_multiplier
-    logger.info(f"Multiplier: {multiplier}\nCoarse Sampling: {sampling2}, Fine Sampling: {sampling1}\n"
+    multiplier = sampling_multiplier * space_multiplier
+    logger.info(f"Multiplier: {multiplier}, Sampling Multiplier: {sampling_multiplier}\nCoarse Sampling: {sampling2}, Fine Sampling: {sampling1}\n"
                 f"Coarse Spacing: {spacing2}, Fine Spacing: {spacing1}")
-    return dataset_fine, dataset_coarse, multiplier
+    return dataset_fine, dataset_coarse, sampling_multiplier, multiplier
 
 
 def group_by_time(dataset: HysplitResult) -> dict:

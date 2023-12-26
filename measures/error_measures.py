@@ -15,7 +15,7 @@ def get_error(coarse_value: Decimal, dataset: [Decimal]) -> dict:
 
 
 row_error_types = {
-    "absolute": lambda values: Decimal(sum([abs(value[0] - value[1]) for value in values])),
+    "absolute": lambda values: Decimal(statistics.fmean([abs(value[0] - value[1]) for value in values])),
     "spercent": lambda values: Decimal(len(values) * statistics.fmean(
         [abs(value[0] - value[1]) / ((abs(value[0]) + abs(value[1])) / 2)
          for value in values]))
