@@ -97,8 +97,7 @@ def measure_bucket_qualities(test_runs: list, parameters: dict):
         run["config"].fetch_results()
         try:
             start = datetime.now()
-            error_aggregates, errors = compute_errors(run["config"], parameters["base_config"],
-                                                      lambda v, r, n: interpolate(run_details.keys(), v, r, n))
+            error_aggregates, errors = compute_errors(run["config"], parameters["base_config"])
             duration = (datetime.now() - start).total_seconds()
             logger.info(f"Duration: {duration} seconds")
 
@@ -122,8 +121,7 @@ def get_result_config(base_path: str, details: dict, run_id: int) -> HysplitResu
     return config
 
 
-def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
-                   get_value) -> tuple:
+def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult) -> tuple:
     dataset_fine, dataset_coarse, multiplier = validate_datasets(dataset1, dataset2)
     fine_spacing = get_width(dataset_fine.parameters[spacing_param_key])
     coarse_sampling = hysplit.get_sampling_rate_mins(dataset_coarse.parameters[sampling_param_key])
@@ -136,7 +134,7 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
         for timestamp in get_frechet_times(row["timestamp"], coarse_sampling):
             relevant_fine_data = [Decimal(r["concentration"]) for r in
                                   get_matching_data(row, timestamp, dataset_coarse, fine_spacing, grouped_fine_data)]
-            shifted_errors.append(get_error(Decimal(row["concentration"]) / multiplier, relevant_fine_data, get_value))
+            shifted_errors.append(get_error(Decimal(row["concentration"]) / multiplier, relevant_fine_data))
         frechet_errors = dict()
         for key in shifted_errors[0].keys():
             frechet_errors[key] = min(x[key] for x in shifted_errors)
@@ -153,7 +151,6 @@ def compute_errors(dataset1: HysplitResult, dataset2: HysplitResult,
 
 
 def validate_datasets(dataset1, dataset2) -> tuple:
-    # can also add span and center validation if needed
     spacing1 = get_width(dataset1.parameters[spacing_param_key])
     sampling1 = hysplit.get_sampling_rate_mins(dataset1.parameters[sampling_param_key])
     spacing2 = get_width(dataset2.parameters[spacing_param_key])
@@ -168,7 +165,9 @@ def validate_datasets(dataset1, dataset2) -> tuple:
     if (space_multiplier != spacing2 // spacing1
             or sampling_multiplier != sampling2 // sampling1):
         raise Exception("Cannot compare: the finer parameter does not divide the coarser parameter")
-    multiplier = space_multiplier * sampling_multiplier
+    multiplier = sampling_multiplier
+    logger.info(f"Multiplier: {multiplier}\nCoarse Sampling: {sampling2}, Fine Sampling: {sampling1}\n"
+                f"Coarse Spacing: {spacing2}, Fine Spacing: {spacing1}")
     return dataset_fine, dataset_coarse, multiplier
 
 
@@ -224,17 +223,3 @@ def get_space_bounds(value: Decimal, diff: Decimal):
 
 def check_bounds(value: Decimal, bounds: tuple) -> bool:
     return bounds[0] < value < bounds[1]
-
-
-interpolations = {
-    "output_grids::sampling": lambda val, rows, node_count: Decimal(val / len(rows)),
-    "output_grids::spacing": lambda val, rows, node_count: Decimal(val / node_count)
-}
-
-
-def interpolate(params: [str], value: Decimal, rows: [Decimal], node_count) -> Decimal:
-    new_value = value
-    for key in interpolations:
-        if key in params:
-            new_value = interpolations[key](new_value, rows, node_count)
-    return new_value

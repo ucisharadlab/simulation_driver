@@ -7,7 +7,7 @@ import math
 logger = logging.getLogger()
 
 
-def get_error(coarse_value: Decimal, dataset: [Decimal], interpolate) -> dict:
+def get_error(coarse_value: Decimal, dataset: [Decimal]) -> dict:
     errors = dict()
     for key in row_error_types.keys():
         errors[key] = row_error_types[key]([(coarse_value - d, d) for d in dataset])

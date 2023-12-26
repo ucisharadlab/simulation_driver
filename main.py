@@ -84,8 +84,7 @@ def test_errors():
     #                   "thread_name": "", "params": defaults, "run_id": 1},
     #     base_path="./debug/hysplit_out/")
     keys = "attempt_id,run_id,total_run_time,output_grids::spacing,output_grids::sampling,duration_s".split(",")
-    error_summary, error_rows = quality.compute_errors(test_config, base_config,
-                                                       lambda v, r, n: quality.interpolate(keys, v, r, n))
+    error_summary, error_rows = quality.compute_errors(test_config, base_config)
     logger.info(f"Errors: {error_summary}")
 
 
