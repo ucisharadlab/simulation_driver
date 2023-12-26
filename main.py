@@ -54,8 +54,9 @@ def collate_measures():
 
 
 def plot_qualities():
-    durations_path = "/Users/sriramrao/code/simulation/simulation_driver/debug/measures/"
-    summary_file = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/errors_summary.csv")
+    measures_path = Path("/Users/sriramrao/code/simulation/simulation_driver/debug/hysplit_out/measures/").resolve()
+    durations_path = measures_path / "2023-12-25/"
+    summary_file = measures_path / "2023-12-25/measures_23-59.csv"
     quality_plot.plot_measures(durations_path, str(summary_file), True)
 
 
@@ -68,14 +69,14 @@ def recompute_errors(errors_path: str):
 
 def test_errors():
     defaults = {"%output_grids%::%spacing%": "0.01 0.01",
-                "%output_grids%::%sampling%": "00 00 01",
+                "%output_grids%::%sampling%": "00 00 30",
                 "%grid_center%": "34.12448, -118.40778"}
     file = Path("/Users/sriramrao/code/simulation/simulation_driver/"
-                "debug/hysplit_out/measures/2023-12-24/").resolve()
-    base_config = quality.HysplitResult(file / "data_dump_140.csv", defaults)
+                "debug/hysplit_out/measures/2023-12-25/").resolve()
+    base_config = quality.HysplitResult(file / "data_dump_3.csv", defaults)
     test_values = defaults.copy()
-    test_values["%output_grids%::%sampling%"] = "00 00 02"
-    test_config = quality.HysplitResult(file / "data_dump_139.csv", test_values)
+    test_values["%output_grids%::%sampling%"] = "00 01 00"
+    test_config = quality.HysplitResult(file / "data_dump_2.csv", test_values)
 
     # quality.measure_quality(
     #     test_details={"name": "grid_measurement", "date": "2023-11-26_23-16", "name_prefix": "data_dump",
@@ -94,7 +95,7 @@ def test_and_measure():
     parser.add_argument("-r", "--runid", required=True,
                         help="Run ID of the test that should be considered ground truth")
     defaults = {"%output_grids%::%spacing%": "0.01 0.01",
-                "%output_grids%::%sampling%": "00 00 05",
+                "%output_grids%::%sampling%": "00 00 01",
                 "%grid_center%": "34.12448, -118.40778"}
     args = parser.parse_args()
 
@@ -105,7 +106,7 @@ def test_and_measure():
     logger.info(f"Beginning quality measurements, date: {args.date}, base runID: {args.runid}")
     details = {"name": "grid_measurement", "date": args.date, "name_prefix": "data_dump",
                "thread_name": "MainProcess", "params": defaults, "run_id": args.runid}
-    quality.measure_quality(test_details=details, base_path=args.basepath)
+    quality.measure_quality(test_details=details, base_path="./debug/hysplit_out")
     logger.info(f"Execution complete")
 
 
@@ -115,7 +116,7 @@ if __name__ == '__main__':
     # test_errors()
     # plot_qualities()
     # driver_data_queries_test()
-    # hysplit_test.default_test()
+    hysplit_test.grid_test(test_run=True)
     # plot_qualities()
     # test_errors()
-    quality_check()
+    # quality_check()

@@ -112,7 +112,6 @@ class Hysplit(CommandLineSimulator):
             self.set_parameter(param, files.prefix_path(absolute_path, self.get_parameter(param)))
 
     def get_defaults(self, params: dict = None) -> dict:
-        # TODO: Make relative paths relative to repo root
         return {
             "%name%": "test_helpers",
             "%start_locations%": ["34.12448, -118.40778"],
