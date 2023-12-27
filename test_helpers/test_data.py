@@ -14,37 +14,37 @@ def get_query_load():
              "simulation_id": "ABC123"}]
 
 
-planner_data = [('{"%start_locations%": ["35.727513, -118.786136"], "%output_grids%": [{"%centre%":"35.727513, '
-                 '-118.786136","%spacing%":"0.09 0.09","%span%":"2.0 4.0",'
-                 '"%dir%":"./debug/hysplit_out/default/start-1-sample-5/","%file%":"dump_default",'
-                 '"%vertical_level%":"1\n50","%sampling%":"00 00 00 00 00\n00 00 00 00 00\n00 00 05"}]}',
+planner_data = [('{"start_locations": ["35.727513, -118.786136"], "output_grids": [{"centre":"35.727513, '
+                 '-118.786136","spacing":"0.09 0.09","span":"2.0 4.0",'
+                 '"dir":"./debug/hysplit_out/default/start-1-sample-5/","file":"dump_default",'
+                 '"vertical_level":"1\n50","sampling":"00 00 00 00 00\n00 00 00 00 00\n00 00 05"}]}',
                  800, 0.4),
-                ('{"%start_locations%": ["35.727513, -118.786136"], "%output_grids%": [{"%centre%":"35.727513, '
-                 '-118.786136","%spacing%":"0.09 0.09","%span%":"2.0 4.0",'
-                 '"%dir%":"./debug/hysplit_out/default/start-1-sample-5/","%file%":"dump_default",'
-                 '"%vertical_level%":"1\n50","%sampling%":"00 00 00 00 00\n00 00 00 00 00\n00 00 05"}]}',
-                1000, 0.7),
-                ('{"%start_locations%": ["35.727513, -118.786136"], "%output_grids%": [{"%centre%":"35.727513, '
-                 '-118.786136","%spacing%":"0.1 0.1","%span%":"2.0 4.0",'
-                 '"%dir%":"./debug/hysplit_out/default/start-1-sample-60/","%file%":"dump_default",'
-                 '"%vertical_level%":"1\n50","%sampling%":"00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}',
-                120, 0.3),
-                ('{"%start_locations%": ["35.727513, -118.786136", "35.726513, -118.788136", "35.728513, '
-                 '-118.788136", "35.725513, -118.787136", "35.729513, -118.787136"], "%output_grids%": [{'
-                 '"%centre%":"35.727513, -118.786136","%spacing%":"0.05 0.05","%span%":"5.0 10.0",'
-                 '"%dir%":"./debug/hysplit_out/default/start-5-sample-15-run-20/","%file%":"dump_default",'
-                 '"%vertical_level%":"1\n50","%sampling%":"00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}',
-                2000, 1.0)]
+                ('{"start_locations": ["35.727513, -118.786136"], "output_grids": [{"centre":"35.727513, '
+                 '-118.786136","spacing":"0.09 0.09","span":"2.0 4.0",'
+                 '"dir":"./debug/hysplit_out/default/start-1-sample-5/","file":"dump_default",'
+                 '"vertical_level":"1\n50","sampling":"00 00 00 00 00\n00 00 00 00 00\n00 00 05"}]}',
+                 1000, 0.7),
+                ('{"start_locations": ["35.727513, -118.786136"], "output_grids": [{"centre":"35.727513, '
+                 '-118.786136","spacing":"0.1 0.1","span":"2.0 4.0",'
+                 '"dir":"./debug/hysplit_out/default/start-1-sample-60/","file":"dump_default",'
+                 '"vertical_level":"1\n50","sampling":"00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}',
+                 120, 0.3),
+                ('{"start_locations": ["35.727513, -118.786136", "35.726513, -118.788136", "35.728513, '
+                 '-118.788136", "35.725513, -118.787136", "35.729513, -118.787136"], "output_grids": [{'
+                 '"centre":"35.727513, -118.786136","spacing":"0.05 0.05","span":"5.0 10.0",'
+                 '"dir":"./debug/hysplit_out/default/start-5-sample-15-run-20/","file":"dump_default",'
+                 '"vertical_level":"1\n50","sampling":"00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}',
+                 2000, 1.0)]
 
 data_queries = [{"id": "1",
                  "query": "SELECT location, name, concentration FROM concentration_data WHERE concentration > 0.3",
                  "output_type": "concentration"}]
 
-slow_params = {"%start_locations%": ["35.727513, -118.786136", "35.726513, -118.788136", "35.728513, -118.788136",
-                                     "35.725513, -118.787136", "35.729513, -118.787136"], "%output_grids%": [
-    {"%centre%": "35.727513, -118.786136", "%spacing%": "0.05 0.05", "%span%": "5.0 10.0",
-     "%dir%": "./debug/hysplit_out/default/slow-start-5-sample-15-run-20/", "%file%": "dump_default",
-     "%vertical_level%": "1\n50", "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}
+slow_params = {"start_locations": ["35.727513, -118.786136", "35.726513, -118.788136", "35.728513, -118.788136",
+                                   "35.725513, -118.787136", "35.729513, -118.787136"], "output_grids": [
+    {"centre": "35.727513, -118.786136", "spacing": "0.05 0.05", "span": "5.0 10.0",
+     "dir": "./debug/hysplit_out/default/slow-start-5-sample-15-run-20/", "file": "dump_default",
+     "vertical_level": "1\n50", "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 01 00"}]}
 
 
 def get_test_planner_data():

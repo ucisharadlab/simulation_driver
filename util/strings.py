@@ -1,4 +1,5 @@
 from datetime import datetime
+from string import Template
 
 comma = ","
 tab = "\t"
@@ -6,15 +7,8 @@ underscore = "_"
 colon = ":"
 
 
-def macro_replace(macros: dict, initial_text: str) -> str:
-    for key in macros.keys():
-        if key not in initial_text:
-            continue
-        if type(macros[key]) is not list and type(macros[key]) is not tuple and type(macros[key]) is not dict:
-            initial_text = initial_text.replace(key, macros[key])
-            continue
-        initial_text = initial_text.replace(key, collate(macros[key]))
-    return initial_text
+def macro_replace(macros: dict, text: str) -> str:
+    return Template(text).safe_substitute(get_template_substitutes(macros))
 
 
 def sanitise(string: str, remove: [str], replacement: str) -> str:
@@ -25,7 +19,6 @@ def sanitise(string: str, remove: [str], replacement: str) -> str:
 
 
 def collate(items, separator: str = "\n") -> str:
-    # TODO if needed: make recursive if more than one level of nesting is needed
     if len(items) == 0:
         return ""
     if type(next(iter(items), None)) is not dict:
@@ -35,3 +28,9 @@ def collate(items, separator: str = "\n") -> str:
 
 def get_date_str(date: datetime = datetime.now()):
     return date.strftime("%Y-%m-%d_%H-%M")
+
+
+def get_template_substitutes(settings: dict) -> dict:
+    return {key.replace("%", ""):
+            (value if isinstance(value, str) else collate(value))
+            for key, value in settings.items()}

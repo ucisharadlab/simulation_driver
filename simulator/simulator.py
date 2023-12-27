@@ -118,5 +118,5 @@ def get_split_keys(composite_key: str) -> (str, str):
     return outer_key, inner_key
 
 
-base_dir_macro = "%base_working_dir%"
-original_dir_macro = "%original_path%"
+base_dir_macro = "base_working_dir"
+original_dir_macro = "original_path"

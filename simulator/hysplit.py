@@ -14,14 +14,14 @@ class Hysplit(CommandLineSimulator):
 
         os.chdir(self.get_working_path(f"."))
         for param in self.execution_params.keys():
-            if param == "%keys_with_count%":
+            if param == "keys_with_count":
                 continue
             old_value = self.execution_params[param]
             self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
 
     def postprocess(self) -> None:
         self.logger.info("Post-process commencing")
-        output_file = Path(self.get_parameter("%data_output%"))
+        output_file = Path(self.get_parameter("data_output"))
         split_files_dir = output_file.parent
         data_file = split_files_dir.parent / (output_file.stem + ".txt")
         rows_written = 0
@@ -46,19 +46,19 @@ class Hysplit(CommandLineSimulator):
                             rows_written += 1
                             if rows_written % 100000 == 0:
                                 self.logger.info(f"Rows written: {rows_written}")
-        self.set_parameter("%data_output%", str(data_file))
-        os.chdir(self.execution_params["%original_path%"])
+        self.set_parameter("data_output", str(data_file))
+        os.chdir(self.execution_params["original_path"])
         self.logger.info("Post-process complete")
 
     def generate_config(self):
-        control_params = self.get_parameter("%control_file%")[0]
-        template_path = Path(self.get_parameter("%control_file%::%template_path%"))
-        control_path = files.create_path_str(self.get_parameter("%control_file%::%path%"))
+        control_params = self.get_parameter("control_file")[0]
+        template_path = Path(self.get_parameter("control_file::template_path"))
+        control_path = files.create_path_str(self.get_parameter("control_file::path"))
 
-        files.generate_file(template_path / control_params["%template_file%"],
-                            control_params["%name%"], str(control_path), self.execution_params)
-        files.generate_file(template_path / control_params["%setup_template%"],
-                            control_params["%setup_name%"], str(control_path), self.execution_params)
+        files.generate_file(template_path / control_params["template_file"],
+                            control_params["name"], str(control_path), self.execution_params)
+        files.generate_file(template_path / control_params["setup_template"],
+                            control_params["setup_name"], str(control_path), self.execution_params)
         files.copy(template_path / "ASCDATA.CFG", control_path / "ASCDATA.CFG")
 
     def prepare_command(self) -> [str]:
@@ -70,28 +70,28 @@ class Hysplit(CommandLineSimulator):
                 f"> /dev/null && echo 'Done conversion' "]
 
     def setup_parameters(self):
-        for key in self.get_parameter("%keys_with_count%"):
+        for key in self.get_parameter("keys_with_count"):
             self.add_count(key)
-        self.set_parameter("%output_grids%::%file%", strings.macro_replace(
-            self.execution_params, self.get_parameter("%output_grids%::%file%")))
-        deposition = self.get_parameter("%deposition%") * int(self.get_parameter("%pollutants_count%"))
-        self.set_parameter("%deposition%", deposition)
+        self.set_parameter("output_grids::file", strings.macro_replace(
+            self.execution_params, self.get_parameter("output_grids::file")))
+        deposition = self.get_parameter("deposition") * int(self.get_parameter("pollutants_count"))
+        self.set_parameter("deposition", deposition)
         self.generate_config()
 
     def setup_inputs(self) -> (Path, Path):
-        filename = self.get_parameter('%output_grids%::%file%')
-        output_dir = files.create_path_str(self.get_parameter("%output_grids%::%dir%")) / filename.replace("dump_", "")
+        filename = self.get_parameter('output_grids::file')
+        output_dir = files.create_path_str(self.get_parameter("output_grids::dir")) / filename.replace("dump_", "")
         output_dir.mkdir(parents=True, exist_ok=True)
         output_file = output_dir / f"data_{filename}"
-        dump_files = [str((grid['%dir%']) + "/" + grid['%file%']) for grid in self.get_parameter("%output_grids%")]
+        dump_files = [str((grid['dir']) + "/" + grid['file']) for grid in self.get_parameter("output_grids")]
         dump_file_path = output_dir / f"dump_files_{get_date_suffix()}.txt"
         files.write_lines(dump_file_path, dump_files)
-        self.set_parameter("%data_output%", str(output_file) + ".txt")
+        self.set_parameter("data_output", str(output_file) + ".txt")
         return dump_file_path, output_file
 
     def get_results(self) -> [dict]:
         self.logger.info(f"Fetching results")
-        filename = self.get_parameter("%data_output%")
+        filename = self.get_parameter("data_output")
         if Path(filename).stat().st_size == 0:
             return list()
         with open(filename) as file:
@@ -111,51 +111,51 @@ class Hysplit(CommandLineSimulator):
     def set_path_params(self) -> None:
         working_path = self.get_working_path(f".")
         working_path.mkdir(parents=True, exist_ok=True)
-        for param in self.get_parameter("%working_path_params%"):
+        for param in self.get_parameter("working_path_params"):
             self.set_parameter(param, files.prefix_path(working_path, self.get_parameter(param)))
         absolute_path = self.get_absolute_path(f".")
-        for param in self.get_parameter("%absolute_path_params%"):
+        for param in self.get_parameter("absolute_path_params"):
             self.set_parameter(param, files.prefix_path(absolute_path, self.get_parameter(param)))
 
     def get_defaults(self, params: dict = None) -> dict:
         return {
-            "%name%": "test_helpers",
-            "%start_locations%": ["34.12448, -118.40778"],
+            "name": "test_helpers",
+            "start_locations": ["34.12448, -118.40778"],
             # Edwards’ Point (https://losangelesexplorersguild.com/2021/03/16/center-of-los-angeles/)
-            "%total_run_time%": str(7 * 24),
-            "%input_data_grids%": [{
-                "%dir%": f"{settings.HYSPLIT_PATH}/working/",
-                "%file%": "oct1618.BIN"
+            "total_run_time": str(7 * 24),
+            "input_data_grids": [{
+                "dir": f"{settings.HYSPLIT_PATH}/working/",
+                "file": "oct1618.BIN"
             }],
-            "%pollutants%": [{
-                "%id%": "AIR1",
-                "%emission_rate%": "50.0",
-                "%emission_duration_hours%": "144.0",
-                "%release_start%": "00 00 00 00 00"
+            "pollutants": [{
+                "id": "AIR1",
+                "emission_rate": "50.0",
+                "emission_duration_hours": "144.0",
+                "release_start": "00 00 00 00 00"
             }],
-            "%output_grids%": [{
-                "%centre%": "34.12448, -118.40778",
-                "%spacing%": "0.05 0.05",
-                "%span%": "1.0 1.0",
-                "%dir%": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
-                "%file%": "dump_%params%",
-                "%vertical_level%": "1\n50",
-                "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
+            "output_grids": [{
+                "centre": "34.12448, -118.40778",
+                "spacing": "0.05 0.05",
+                "span": "1.0 1.0",
+                "dir": f"./default/{datetime.now().strftime('%Y-%m-%d_%H-%M')}/",
+                "file": "dump_$params",
+                "vertical_level": "1\n50",
+                "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
             }],
-            "%timestep%": "30",
-            "%deposition%": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
-            "%control_file%": [{
-                "%template_path%": "./debug/examples/hysplit",
-                "%template_file%": "CONTROL_template",
-                "%setup_template%": "SETUP_template",
-                "%name%": "CONTROL",
-                "%setup_name%": "SETUP.CFG",
-                "%path%": "./"
+            "timestep": "30",
+            "deposition": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
+            "control_file": [{
+                "template_path": "./debug/examples/hysplit",
+                "template_file": "CONTROL_template",
+                "setup_template": "SETUP_template",
+                "name": "CONTROL",
+                "setup_name": "SETUP.CFG",
+                "path": "./"
             }],
-            "%params%": "%name%_%start_locations_count%_%total_run_time%_%output_grids_count%_%pollutants_count%",
-            "%working_path_params%": ["%output_grids%::%dir%", "%control_file%::%path%"],
-            "%absolute_path_params%": ["%control_file%::%template_path%"],
-            "%keys_with_count%": ["%start_locations%", "%input_data_grids%", "%output_grids%", "%pollutants%"]
+            "params": "$name_$start_locations_count_$total_run_time_$output_grids_count_$pollutants_count",
+            "working_path_params": ["output_grid::dir", "control_file::path"],
+            "absolute_path_params": ["control_file::template_path"],
+            "keys_with_count": ["start_locations", "input_data_grids", "output_grids", "pollutants"]
         }
 
 
@@ -188,11 +188,6 @@ def get_date_path_suffix(date_str: str) -> str:
 
 def get_date_suffix(date: datetime = datetime.now()) -> str:
     return date.strftime("%Y-%m-%d_%H-%M")
-
-
-def get_param(name: str, value: str) -> tuple:
-    name = name.replace("::", "%::%")
-    return f"%{name}%", value
 
 
 hysplit_data_start = datetime.strptime("1995-01-01", '%Y-%m-%d')

@@ -25,14 +25,14 @@ def default_test():
 
 def test(test_name: str, param_values: list, attempts: int,
          output_dir: str = "./debug/hysplit_out", time_suffix: str = None):
-    attempt_time_suffix = time_suffix if time_suffix else datetime.now().strftime('%Y-%m-%d_%H-%M')
+    attempt_time_suffix = time_suffix if time_suffix else datetime.now().strftime("%Y-%m-%d_%H-%M")
     for attempt in range(0, attempts):
         working_path, output_path, measures_path = (
             get_output_paths(output_dir, test_name, attempt, attempt_time_suffix, current_process().name))
         hysplit_sim = Hysplit()
         total_count = len(param_values)
 
-        clean_keys = [key.lower().replace("%", "") for key in param_values[0][1].keys()]
+        clean_keys = [key.lower().replace("", "") for key in param_values[0][1].keys()]
 
         with open(measures_path, "a+") as measures_file:
             measures_file.writelines(f"attempt_id,run_id,{','.join(clean_keys)},duration_s\n")
@@ -52,12 +52,11 @@ def test(test_name: str, param_values: list, attempts: int,
 
 
 def get_clean_values(params: dict) -> [str]:
-    clean_params = params.copy()
-    if "%output_grids%::%sampling%" in params:
-        clean_params["%output_grids%::%sampling%"] = str(hysplit.get_sampling_rate_mins(
-            clean_params["%output_grids%::%sampling%"]))
+    if "output_grids::sampling" in params:
+        params["output_grids::sampling"] = str(hysplit.get_sampling_rate_mins(
+            params["output_grids::sampling"]))
     return [(value.replace("\n", " ") if not isinstance(value, list) else str(len(value)))
-            for value in clean_params.values()]
+            for value in params.values()]
 
 
 def locations_test(start=1, end=9, step=1, attempts=1):
@@ -68,7 +67,7 @@ def locations_test(start=1, end=9, step=1, attempts=1):
         locations = list()
         for source in range(1, count + 1):
             locations.append(" ".join([str(val + (source - 1) * location_step) for val in source_location]))
-        values.append((str(len(locations)), {"%start_locations%": locations}))
+        values.append((str(len(locations)), {"start_locations": locations}))
     test("start_locations", values, attempts)
 
 
@@ -86,14 +85,14 @@ def grid_test(test_run=False, time_suffix: str = None):
     output_grid_spacing_values.reverse()
     output_grid_sampling_rates = ["02 00", "01 00", "00 30", "00 15", "00 12", "00 10",
                                   "00 06", "00 05", "00 04", "00 03", "00 02", "00 01"]
-    pollutants_count = 5
-    output_grid_span = 5.0
+    pollutants_count = 2
+    output_grid_span = 1.0
 
     # List slicing end ([:end]) of items per parameter. Unset when not testing.
     var_limit_for_testing = 2 if test_run else None
 
     hysplit_sim = Hysplit()
-    default_sampling = hysplit_sim.get_defaults()["%output_grids%"][0]["%sampling%"]
+    default_sampling = hysplit_sim.get_defaults()["output_grids"][0]["sampling"]
 
     parameter_values = list()
     parameter_combination_id = 1
@@ -102,12 +101,12 @@ def grid_test(test_run=False, time_suffix: str = None):
             for output_grid_sample_rate in output_grid_sampling_rates[:var_limit_for_testing]:
                 sampling = default_sampling[:-5] + output_grid_sample_rate
                 time_step = min(hysplit.get_sampling_rate_mins(sampling), 60)
-                parameter_dict = {"%total_run_time%": str(total_run_time),
-                                  "%output_grids%::%spacing%": f"{output_grid_spacing:.4f} {output_grid_spacing:.4f}",
-                                  "%output_grids%::%sampling%": sampling,
-                                  "%timestep%": str(time_step),
-                                  "%output_grids%::%span%": f"{output_grid_span:.3f} {output_grid_span:.3f}",
-                                  "%pollutants%": [get_pollutant(f"P{(i + 1):03d}", total_run_time - 24)
+                parameter_dict = {"total_run_time": str(total_run_time),
+                                  "output_grids::spacing": f"{output_grid_spacing:.4f} {output_grid_spacing:.4f}",
+                                  "output_grids::sampling": sampling,
+                                  "timestep": str(time_step),
+                                  "output_grids::span": f"{output_grid_span:.3f} {output_grid_span:.3f}",
+                                  "pollutants": [get_pollutant(f"P{(i + 1):03d}", total_run_time - 24)
                                                    for i in range(0, pollutants_count)]}
                 parameter_values.append((parameter_combination_id, parameter_dict))
                 parameter_combination_id += 1
@@ -118,50 +117,49 @@ def grid_test(test_run=False, time_suffix: str = None):
 
 def coinciding_points_check():
     parameter_values = list()
-    sampling_prefix = Hysplit().get_defaults()["%output_grids%"][0]["%sampling%"][:-5]
-    parameter_dict = {"%%": f"",
-                      "%output_grids%::%spacing%": f"0.05 0.05",
-                      "%output_grids%::%sampling%": sampling_prefix + "01 00"}
+    sampling_prefix = Hysplit().get_defaults()["output_grids"][0]["sampling"][:-5]
+    parameter_dict = {"output_grids::spacing": f"0.05 0.05",
+                      "output_grids::sampling": sampling_prefix + "01 00"}
     parameter_values.append((1, parameter_dict.copy()))
-    parameter_dict["%output_grids%::%spacing%"] = f"0.1 0.1"
+    parameter_dict["output_grids::spacing"] = f"0.1 0.1"
     parameter_values.append((2, parameter_dict.copy()))
-    parameter_dict["%output_grids%::%spacing%"] = f"0.05 0.05"
-    parameter_dict["%output_grids%::%sampling%"] = sampling_prefix + f"02 00"
+    parameter_dict["output_grids::spacing"] = f"0.05 0.05"
+    parameter_dict["output_grids::sampling"] = sampling_prefix + f"02 00"
     parameter_values.append((3, parameter_dict.copy()))
-    parameter_dict["%output_grids%::%spacing%"] = f"0.1 0.1"
+    parameter_dict["output_grids::spacing"] = f"0.1 0.1"
     parameter_values.append((4, parameter_dict.copy()))
     test("coinciding_points", parameter_values, 1)
 
 
 def ground_truth():
     hysplit = Hysplit()
-    default_sampling = hysplit.get_defaults()["%output_grids%"][0]["%sampling%"]
+    default_sampling = hysplit.get_defaults()["output_grids"][0]["sampling"]
     sampling = default_sampling[:-5] + "01 00"
-    parameter_dict = {"%output_grids%::%spacing%": f"0.001 0.001",
-                      "%output_grids%::%sampling%": sampling}
+    parameter_dict = {"output_grids::spacing": f"0.001 0.001",
+                      "output_grids::sampling": sampling}
     test("ground_truth", [(1, parameter_dict)], 1)
 
 
 def total_run_time_test(start=24, end=10 * 24, step=24, attempts=1):
     test_values = list()
     for run_time in range(start, end + step, step):
-        test_values.append((str(run_time), {"%total_run_time%": str(run_time)}))
+        test_values.append((str(run_time), {"total_run_time": str(run_time)}))
     test("run_time", test_values, attempts)
 
 
 def emission_duration_test(start=1, end=4 * 24, step=3, attempts=1):
     test_values = list()
     for duration in range(start, end + 1, step):
-        test_values.append((str(duration), {"%emission_duration_hours%": str(duration)}))
+        test_values.append((str(duration), {"emission_duration_hours": str(duration)}))
     test("emission_duration", test_values, attempts)
 
 
 def pollutants_test(start=0, end=4000, step=500, attempts=1):
     default_pollutant = {
-        "%id%": "0000",
-        "%emission_rate%": "50.0",
-        "%emission_duration_hours%": "10.0",
-        "%release_start%": "00 00 00 00 00"
+        "id": "0000",
+        "emission_rate": "50.0",
+        "emission_duration_hours": "10.0",
+        "release_start": "00 00 00 00 00"
     }
     default_deposition = "0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"
     test_values = list()
@@ -170,10 +168,10 @@ def pollutants_test(start=0, end=4000, step=500, attempts=1):
         next_end = count if count > 0 else 1
         for i in range(1, next_end + 1, 1):
             test_pollutant = default_pollutant.copy()
-            test_pollutant["%id%"] = f"{i:04d}"
+            test_pollutant["id"] = f"{i:04d}"
             test_pollutants.append(test_pollutant)
-        test_values.append((next_end, {"%pollutants%": test_pollutants,
-                                       "%deposition%": [default_deposition] * len(test_pollutants)}))
+        test_values.append((next_end, {"pollutants": test_pollutants,
+                                       "deposition": [default_deposition] * len(test_pollutants)}))
     test("pollutants_count", test_values, attempts)
 
 
@@ -183,80 +181,80 @@ def output_grid_centres_test():
 
 def output_grid_spacing_test(start=0.1, end=3.0, step=0.1, attempts=1):
     default_grid = {
-        "%centre%": "35.727513, -118.786136",
-        "%spacing%": "0.01 0.01",
-        "%span%": "180.0 360.0",
-        "%dir%": "./",
-        "%file%": "cdump",
-        "%vertical_level%": "1\n50",
-        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
+        "centre": "35.727513, -118.786136",
+        "spacing": "0.01 0.01",
+        "span": "180.0 360.0",
+        "dir": "./",
+        "file": "cdump",
+        "vertical_level": "1\n50",
+        "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
-    test_values = [(0.01, {"%output_grids%": [default_grid.copy()]})]
+    test_values = [(0.01, {"output_grids": [default_grid.copy()]})]
     for space in ranges.decimal_range(start, end + step, step):
         input_space = space if space > 0 else 0.001
-        default_grid["%spacing%"] = f"{input_space} {input_space}"
-        test_values.append((space, {"%output_grids%": [default_grid.copy()]}))
+        default_grid["spacing"] = f"{input_space} {input_space}"
+        test_values.append((space, {"output_grids": [default_grid.copy()]}))
     return test("spacing", test_values, attempts)
 
 
 def output_grid_span_test(start=0.0, lat_end=180.0, long_end=360.0, step=10, attempts=1):
     default_grid = {
-        "%centre%": "35.727513, -118.786136",
-        "%spacing%": "0.1 0.1",
-        "%span%": "180.0 360.0",
-        "%dir%": "./",
-        "%file%": "cdump",
-        "%vertical_level%": "1\n50",
-        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
+        "centre": "35.727513, -118.786136",
+        "spacing": "0.1 0.1",
+        "span": "180.0 360.0",
+        "dir": "./",
+        "file": "cdump",
+        "vertical_level": "1\n50",
+        "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
 
     test_values = list()
     for span in ranges.decimal_range(start, lat_end + step, step):
         input_span = span if span > 0 else 1.0
-        default_grid["%span%"] = f"{input_span} {input_span}"
-        test_values.append((input_span, {"%output_grids%": [default_grid.copy()]}))
+        default_grid["span"] = f"{input_span} {input_span}"
+        test_values.append((input_span, {"output_grids": [default_grid.copy()]}))
 
     for long_span in ranges.decimal_range(lat_end, long_end + step, step * 2):
-        default_grid["%span%"] = f"{lat_end} {long_span}"
-        test_values.append((long_span, {"%output_grids%": [default_grid.copy()]}))
+        default_grid["span"] = f"{lat_end} {long_span}"
+        test_values.append((long_span, {"output_grids": [default_grid.copy()]}))
     return test("span", test_values, attempts)
 
 
 def output_grid_sampling_test(start=0, end=60, step=5, attempts=1):
-    param_key = "%output_grids%"
+    param_key = "output_grids"
     default_grid = {
-        "%centre%": "35.727513, -118.786136",
-        "%spacing%": "0.1 0.1",
-        "%span%": "10.0 10.0",
-        "%dir%": "./",
-        "%file%": "cdump",
-        "%vertical_level%": "1\n50",
-        "%sampling%": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
+        "centre": "35.727513, -118.786136",
+        "spacing": "0.1 0.1",
+        "span": "10.0 10.0",
+        "dir": "./",
+        "file": "cdump",
+        "vertical_level": "1\n50",
+        "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 01 00",
     }
     test_values = list()  # [(0.01, {param_key: [default_grid.copy()]})]
     for rate in range(start, end + 1, step):
         input_rate = rate if rate > 0 else 1
-        default_grid["%sampling%"] = f"00 00 00 00 00\n00 00 00 00 00\n00 00 {input_rate:02d}"
+        default_grid["sampling"] = f"00 00 00 00 00\n00 00 00 00 00\n00 00 {input_rate:02d}"
         test_values.append((rate, {param_key: [default_grid.copy()]}))
     for rate in range(2, 50, 4):
-        default_grid["%sampling%"] = f"00 00 00 00 00\n00 00 00 00 00\n00 {rate:02d} 00"
+        default_grid["sampling"] = f"00 00 00 00 00\n00 00 00 00 00\n00 {rate:02d} 00"
         test_values.append((rate * 60, {param_key: [default_grid.copy()]}))
     return test("sampling", test_values, attempts)
 
 
 def time_steps(start=1, end=60, step=0, attempts=1):
     end = 60 if end > 60 else end
-    test_values = [(num, {"%timestep%": str(num)})
+    test_values = [(num, {"timestep": str(num)})
                    for num in range(start, end // 2 + 1) if end % num == 0]
     return test("timestep", test_values, attempts)
 
 
 def get_pollutant(name: str, duration_hours: int, rate: Decimal = 50):
     return {
-        "%id%": name,
-        "%emission_rate%": str(rate),
-        "%emission_duration_hours%": str(duration_hours),
-        "%release_start%": "00 00 00 00 00"
+        "id": name,
+        "emission_rate": str(rate),
+        "emission_duration_hours": str(duration_hours),
+        "release_start": "00 00 00 00 00"
     }
 
 
@@ -290,17 +288,15 @@ def get_test_prefix(base_path: str, test_name: str, test_time: str, thread_name:
 
 
 def set_outputs(hysplit: Hysplit, working_path: Path, output_path: Path, run_id: int, run_params: dict) -> None:
-    hysplit.set_parameter("%working_dir%", str(working_path))
-    output_grids = hysplit.get_parameter("%output_grids%") if "%output_grids%" not in run_params.keys() \
-        else run_params["%output_grids%"]
-    # output_grids[0]["%dir%"] = str(output_path.parent) + "/"
-    # output_grids[0]["%file%"] = f"{output_path.stem}_{str(run_id).replace('.', '-')}"
+    hysplit.set_parameter("working_dir", str(working_path))
+    output_grids = hysplit.get_parameter("output_grids") if "output_grids" not in run_params.keys() \
+        else run_params["output_grids"]
 
     relative_out_path = output_path.relative_to(working_path)
-    output_grids[0]["%dir%"] = str(relative_out_path.parent) + "/"
-    output_grids[0]["%file%"] = f"{relative_out_path.stem}_{str(run_id).replace('.', '-')}"
+    output_grids[0]["dir"] = str(relative_out_path.parent) + "/"
+    output_grids[0]["file"] = f"{relative_out_path.stem}_{str(run_id).replace('.', '-')}"
 
-    hysplit.set_parameter("%output_grids%", output_grids)
+    hysplit.set_parameter("output_grids", output_grids)
 
 
 def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str,
@@ -317,11 +313,11 @@ def get_output_paths(directory: str, test_name: str, attempt: int, suffix: str,
     return working_path, output_path, measures_path
 
 
-bucket_macro = "%bucket%"
+bucket_macro = "$bucket$"
 
 
 def get_quality_path(base_path: str, test_details: dict) -> Path:
-    current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    current_date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")  # file
     return (get_test_prefix(base_path, test_details["name"], test_details["date"], test_details["thread_name"])
             / "quality" / current_date_str / f"measures_{bucket_macro}.csv")
 

@@ -15,8 +15,8 @@ from util.parallel_processing import run_processes
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-spacing_param_key = "%output_grids%::%spacing%"
-sampling_param_key = "%output_grids%::%sampling%"
+spacing_param_key = "output_grids::spacing"
+sampling_param_key = "output_grids::sampling"
 measure_types = ["mae", "mse", "mape"]
 frechet_deviation = 0.5
 
@@ -43,7 +43,7 @@ class HysplitResult:
         if self.results is not None:
             return self.results
         simulator = Hysplit(self.parameters)
-        simulator.set_parameter("%data_output%", str(self.path))
+        simulator.set_parameter("data_output", str(self.path))
         self.results = [row for row in simulator.get_results() if row[""].startswith(self.pollutant)]
         return self.results
 
@@ -76,9 +76,8 @@ def prepare_test_config(test_details: dict, base_path: str):
                                           test_details["thread_name"], base_path):
         test_config = get_result_config(base_path, test_details, line["run_id"])
         for key, value in line.items():
-            param_name, param_value = hysplit.get_param(key, value)
-            test_config.set_parameter(param_name, param_value)
-            test_config.parameters[param_name] = param_value
+            test_config.set_parameter(key, value)
+            test_config.parameters[key] = value
         test_configs.append({"config": test_config, "details": line})
     return test_configs
 
