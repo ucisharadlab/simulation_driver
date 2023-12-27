@@ -59,8 +59,8 @@ def merge(paths: [Path], merged_file: Path, headers: bool = True) -> None:
                 full_file.write(part_file.read())
 
 
-def write_line(file_path: Path, text: str) -> None:
-    with file_path.open('a+') as file:
+def write_line(file_path: Path, text: str, mode: str = "a+") -> None:
+    with file_path.open(mode) as file:
         file.write(text + "\n")
         file.flush()
 
@@ -70,9 +70,7 @@ def write_list_to_line(file_path: Path, content: list, column_delimiter: str = c
 
 
 def write_lines(file_path: Path, lines: list, mode: str = "w+") -> None:
-    with file_path.open(mode) as file:
-        file.writelines("\n".join(str(line) for line in lines))
-        file.flush()
+    write_line(file_path, "\n".join(lines), mode)
 
 
 def write_json(file_path: Path, data, mode: str = "w") -> None:

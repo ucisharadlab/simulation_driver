@@ -54,7 +54,6 @@ def test(test_name: str, param_values: list, attempts: int,
             sleep()
             memory_trace.log()
     logger.info(f"Test complete: {test_name}")
-    memory_trace.log()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 

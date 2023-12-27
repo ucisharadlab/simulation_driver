@@ -64,6 +64,7 @@ class Simulator:
         self.simulate()
         self.logger.info("Post-processing")
         self.postprocess()
+        self.logger.info("Run complete")
 
     def get_results(self) -> [dict]:
         raise NotImplementedError()

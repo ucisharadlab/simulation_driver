@@ -17,57 +17,51 @@ class Hysplit(CommandLineSimulator):
                 continue
             old_value = self.execution_params[param]
             self.execution_params[param] = strings.macro_replace(self.execution_params, old_value)
-            memory_trace.log()
 
     def postprocess(self) -> None:
-        self.logger.info("Post-process commencing")
         output_file = Path(self.get_parameter("data_output"))
         split_files_dir = output_file.parent
         data_file = output_file.parent.parent / (output_file.stem + ".txt")
         rows_written = 0
-        with data_file.open("w") as merged_data:
-            merged_data.write(f"{data_file_schema}\n")
+        files.write_line(data_file, data_file_schema, "w")
+
+        buffer = list()
         for sample_file in split_files_dir.glob(output_file.stem + "_*"):
             sample_day, sample_time = sample_file.stem.split("_")[-2:]
             sample_hour, sample_minute = int(sample_time[0:2]), int(sample_time[-2:])
-            timestamp = hysplit_data_start + timedelta(days=int(sample_day) - 1,
-                                                       hours=sample_hour, minutes=sample_minute)
+            timestamp = hysplit_data_start + timedelta(days=int(sample_day) - 1, hours=sample_hour, minutes=sample_minute)
             with sample_file.open("r") as sample:
                 sample_reader = csv.reader(sample, delimiter=',')
                 headers = [value.strip() for value in next(sample_reader)]
                 for row in sample_reader:
                     line = [value.strip() for value in row]
-                    with data_file.open("a+") as merged_data:
-                        writer = csv.writer(merged_data, delimiter=",", lineterminator='\n')
-                        writer.writerows([timestamp.strftime("%Y-%m-%d %H:%M"), line[2], line[3], headers[p], line[p]]
-                                         for p in range(4, len(line)))
+                    buffer.extend(",".join([timestamp.strftime("%Y-%m-%d %H:%M"),
+                                            line[2], line[3], headers[p], line[p]]) for p in range(4, len(line)))
+                    if len(buffer) > chunk_size:
+                        files.write_lines(data_file, buffer, "a+")
+                        buffer.clear()
                     rows_written += len(line) - 4
                     if rows_written % 100000 == 0:
                         self.logger.info(f"Rows written: {rows_written}")
-        memory_trace.log()
+        files.write_lines(data_file, buffer, "a+")
+
         self.set_parameter("data_output", str(data_file))
         os.chdir(self.execution_params["original_path"])
-        self.logger.info("Post-process complete")
 
     def generate_config(self):
-        self.logger.info("Generating control and setup files")
         control_params = self.get_parameter("control_file")[0]
         template_path = Path(self.get_parameter("control_file::template_path"))
         control_path = files.create_path_str(self.get_parameter("control_file::path"))
 
-        self.logger.info("Generating control file")
         files.generate_file(template_path / control_params["template_file"],
                             control_params["name"], str(control_path), self.execution_params)
-        self.logger.info("Generating setup file")
         files.generate_file(template_path / control_params["setup_template"],
                             control_params["setup_name"], str(control_path), self.execution_params)
         files.copy(template_path / "ASCDATA.CFG", control_path / "ASCDATA.CFG")
-        memory_trace.log()
 
     def prepare_command(self) -> [str]:
         self.setup_parameters()
         dump_path, output_file = self.setup_inputs()
-        memory_trace.log()
         return [f"time {settings.HYSPLIT_PATH}/exec/hycs_std && echo 'Done simulation' && "
                 f"time {settings.HYSPLIT_PATH}/exec/conappend -i{dump_path} -o{output_file} && echo 'Done append' && "
                 f"time {settings.HYSPLIT_PATH}/exec/con2asc -i{output_file} -o{output_file} -t -x -u1.0E+9 -d "
@@ -77,13 +71,11 @@ class Hysplit(CommandLineSimulator):
         self.logger.info("Setting up parameters")
         for key in self.get_parameter("keys_with_count"):
             self.add_count(key)
-        deposition = self.get_parameter("deposition") * int(self.get_parameter("pollutants_count"))
-        self.set_parameter("deposition", deposition)
+        self.set_parameter("deposition", default_deposition * int(self.get_parameter("pollutants_count")))
         self.generate_config()
         memory_trace.log()
 
     def setup_inputs(self) -> (Path, Path):
-        self.logger.info("Setting up inputs")
         filename = self.get_parameter('output_grids::file')
         output_dir = files.create_path_str(self.get_parameter("output_grids::dir")) / filename.replace("dump_", "")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -92,7 +84,6 @@ class Hysplit(CommandLineSimulator):
         dump_file_path = output_dir / f"dump_files_{get_date_suffix()}.txt"
         files.write_lines(dump_file_path, dump_files)
         self.set_parameter("data_output", str(output_file) + ".txt")
-        memory_trace.log()
         return dump_file_path, output_file
 
     def get_results(self) -> [dict]:
@@ -115,7 +106,6 @@ class Hysplit(CommandLineSimulator):
         self.set_parameter(count_key, str(len(self.get_parameter(key))))
 
     def set_path_params(self) -> None:
-        self.logger.info("Setting up paths")
         working_path = self.get_working_path(f".")
         working_path.mkdir(parents=True, exist_ok=True)
         for param in self.get_parameter("working_path_params"):
@@ -150,7 +140,7 @@ class Hysplit(CommandLineSimulator):
                 "sampling": "00 00 00 00 00\n00 00 00 00 00\n00 00 30"
             }],
             "timestep": "30",
-            "deposition": ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"],
+            "deposition": default_deposition,
             "control_file": [{
                 "template_path": "./debug/examples/hysplit",
                 "template_file": "CONTROL_template",
@@ -199,3 +189,5 @@ def get_date_suffix(date: datetime = datetime.now()) -> str:
 
 hysplit_data_start = datetime.strptime("1995-01-01", '%Y-%m-%d')
 data_file_schema = "timestamp,latitude,longitude,pollutant,concentration"
+chunk_size = 10000
+default_deposition = ["0.0 0.0 0.0\n0.0 0.0 0.0 0.0 0.0\n0.0 0.0 0.0\n0.0\n0.0"]
