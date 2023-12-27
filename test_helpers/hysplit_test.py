@@ -9,7 +9,7 @@ from pathlib import Path
 from simulator import hysplit
 from simulator.hysplit import Hysplit
 from test_helpers.test_data import slow_params
-from util import strings, ranges
+from util import strings, ranges, memory_trace
 
 logger = logging.getLogger()
 
@@ -26,6 +26,7 @@ def default_test():
 def test(test_name: str, param_values: list, attempts: int,
          output_dir: str = "./debug/hysplit_out", time_suffix: str = None):
     attempt_time_suffix = time_suffix if time_suffix else datetime.now().strftime("%Y-%m-%d_%H-%M")
+    memory_trace.start()
     for attempt in range(0, attempts):
         working_path, output_path, measures_path = (
             get_output_paths(output_dir, test_name, attempt, attempt_time_suffix, current_process().name))
@@ -40,14 +41,20 @@ def test(test_name: str, param_values: list, attempts: int,
             set_outputs(hysplit_sim, working_path, output_path, run_id, params)
             logger.info(f"{test_name} | Running: {run_id}, Total: {total_count}")
             start = datetime.now()
-            hysplit_sim.run(params)
+            try:
+                hysplit_sim.run(params)
+            except Exception as e:
+                logger.error(e)
+                raise e
             duration_s = (datetime.now() - start).total_seconds()
             logger.info(f"Duration: {duration_s} s")
 
             with open(measures_path, "a+") as measures_file:
                 measures_file.writelines(f"{attempt},{run_id},{','.join(get_clean_values(params))},{duration_s}\n")
             sleep()
+            memory_trace.log()
     logger.info(f"Test complete: {test_name}")
+    memory_trace.log()
     return test_name, f"{output_dir}/{test_name}/{attempt_time_suffix}"
 
 
@@ -108,7 +115,7 @@ def grid_test(test_run=False, time_suffix: str = None):
                                   "timestep": str(time_step),
                                   "output_grids::span": f"{output_grid_span:.3f} {output_grid_span:.3f}",
                                   "pollutants": [get_pollutant(f"P{(i + 1):03d}", total_run_time - 24)
-                                                   for i in range(0, pollutants_count)]}
+                                                 for i in range(0, pollutants_count)]}
                 parameter_values.append((parameter_combination_id, parameter_dict))
                 parameter_combination_id += 1
 

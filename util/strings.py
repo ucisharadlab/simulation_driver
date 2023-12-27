@@ -8,9 +8,13 @@ colon = ":"
 
 
 def macro_replace(macros: dict, text: str) -> str:
+    return macro_replace_with_substitutes(get_template_substitutes(macros), text)
+
+
+def macro_replace_with_substitutes(macros: dict, text: str) -> str:
     if not isinstance(text, str):
         return text
-    return Template(text).safe_substitute(get_template_substitutes(macros))
+    return Template(text).safe_substitute(macros)
 
 
 def sanitise(string: str, remove: [str], replacement: str) -> str:

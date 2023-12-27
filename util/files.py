@@ -11,10 +11,10 @@ def generate_file(template_file: Path, name_template: str, output_path: str, set
     with open(template_file, 'r') as template:
         file_content = template.read()
 
-    file_content = macro_replace(settings, file_content)
+    macros = get_template_substitutes(settings)
+    file_content = macro_replace_with_substitutes(macros, file_content)
     filename = (Path(output_path).resolve()
-                / sanitise_filename(macro_replace(settings, name_template)))
-
+                / sanitise_filename(macro_replace_with_substitutes(macros, name_template)))
     with open(filename, 'w') as file:
         file.write(file_content)
     return filename

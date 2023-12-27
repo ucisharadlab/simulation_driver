@@ -49,9 +49,6 @@ class Simulator:
     def preprocess(self) -> None:
         pass
 
-    def specify_parameters(self, params: dict) -> None:
-        self.set_parameters(params)
-
     def simulate(self) -> None:
         raise NotImplementedError()
 
@@ -59,10 +56,13 @@ class Simulator:
         pass
 
     def run(self, params: dict = None) -> None:
+        self.logger.info("Pre-processing")
         self.preprocess()
         if params is not None:
-            self.specify_parameters(params)
+            self.set_parameters(params)
+        self.logger.info("Simulating")
         self.simulate()
+        self.logger.info("Post-processing")
         self.postprocess()
 
     def get_results(self) -> [dict]:
@@ -77,6 +77,7 @@ class Simulator:
 
 class CommandLineSimulator(Simulator):
     def simulate(self) -> None:
+        self.logger.info("Preparing command")
         commands = self.prepare_command()
         for command in commands:
             self.logger.info(f"In directory: {Path().resolve()}, executing command: {command}")
