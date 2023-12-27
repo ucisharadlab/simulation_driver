@@ -8,6 +8,8 @@ colon = ":"
 
 
 def macro_replace(macros: dict, text: str) -> str:
+    if not isinstance(text, str):
+        return text
     return Template(text).safe_substitute(get_template_substitutes(macros))
 
 

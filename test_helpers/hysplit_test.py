@@ -52,11 +52,12 @@ def test(test_name: str, param_values: list, attempts: int,
 
 
 def get_clean_values(params: dict) -> [str]:
-    if "output_grids::sampling" in params:
-        params["output_grids::sampling"] = str(hysplit.get_sampling_rate_mins(
-            params["output_grids::sampling"]))
+    clean_params = params.copy()
+    if "output_grids::sampling" in clean_params:
+        clean_params["output_grids::sampling"] = str(hysplit.get_sampling_rate_mins(
+            clean_params["output_grids::sampling"]))
     return [(value.replace("\n", " ") if not isinstance(value, list) else str(len(value)))
-            for value in params.values()]
+            for value in clean_params.values()]
 
 
 def locations_test(start=1, end=9, step=1, attempts=1):

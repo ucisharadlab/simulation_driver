@@ -105,7 +105,7 @@ class Hysplit(CommandLineSimulator):
 
     def add_count(self, key: str, count_key: str = None) -> None:
         if count_key is None:
-            count_key = key[:-1] + "_count" + key[-1]
+            count_key = key + "_count"
         self.set_parameter(count_key, str(len(self.get_parameter(key))))
 
     def set_path_params(self) -> None:
@@ -153,7 +153,7 @@ class Hysplit(CommandLineSimulator):
                 "path": "./"
             }],
             "params": "$name_$start_locations_count_$total_run_time_$output_grids_count_$pollutants_count",
-            "working_path_params": ["output_grid::dir", "control_file::path"],
+            "working_path_params": ["output_grids::dir", "control_file::path"],
             "absolute_path_params": ["control_file::template_path"],
             "keys_with_count": ["start_locations", "input_data_grids", "output_grids", "pollutants"]
         }
